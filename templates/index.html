@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../statics/vendor/bootstrap/bootstrap.css">
+    <title>KasirKu</title>
+</head>
+<body>
+    <div class="d-flex flex-row bd-highlight mb-3 p-3 bg-light justify-content-around main-menu">
+        <div class="p-2 bd-highlight w-100">
+            <div class="btn btn-primary w-100 tombol" content="menu-utama">
+                <img src="../assets/images/wireframe.svg" height="25px" alt="">
+                <br>
+                <span>Menu Utama</span>
+            </div>
+        </div>
+        <div class="p-2 bd-highlight w-100 ">
+            <div class="btn btn-outline-primary w-100 tombol" content="supplier">
+                <img src="../assets/images/supplier.svg" height="25px" alt="">
+                <br>
+                <span>Supplier</span>
+            </div>
+        </div>
+        <div class="p-2 bd-highlight w-100 ">
+            <div class="btn btn-outline-primary w-100 tombol" content="barang">
+                <img src="../assets/images/package.svg" height="25px" alt="">
+                <br>
+                <span>Barang</span>
+            </div>
+        </div>
+        <div class="p-2 bd-highlight w-100 ">
+            <button class="btn btn-small btn-outline-primary w-100 tombol" content="penjualan">
+                <img src="../assets/images/sold.svg" height="25px" alt="">
+                <br>
+                <span>Penjualan</span>
+            </button>
+        </div>
+    </div>
+    <div id="content">
+
+    </div>
+    <!-- <button id="clicked"></button> -->
+
+    <script>if (typeof module === 'object') {window.module = module; module = undefined;}
+    </script>
+    <script src="../statics/vendor/jquery/jquery.js"></script>
+    <script src="../statics/vendor/popper/popper.js"></script>
+    <script src="../statics/vendor/bootstrap/bootstrap.js"></script>
+    <script src="../statics/vendor/chartjs/chartjs.js"></script>
+    <!-- Insert this line after script imports -->
+    <script>if (window.module) module = window.module;</script>
+    <script>
+        const { ipcRenderer }=require("electron");
+        // const CHANNEL_NAME="data";
+        // ipcRenderer.on(CHANNEL_NAME,(event,data)=>{
+        //     console.log(data);
+        // });
+        // const clickButton=()=>{
+        //     let message="ping";
+
+        //     ipcRenderer.send(CHANNEL_NAME,message);
+        // }
+        // document.getElementById("clicked").addEventListener("click",()=>{
+        //     clickButton();
+        // });
+    </script>
+    <script>
+        // const mainMenu=document.querySelector(".main-menu");
+        // const tombol=document.querySelectorAll(".tombol");
+        // var i=1;
+        // for(tom of tombol){
+        //     tom.addEventListener("click",()=>{
+        //         console.log("KE")
+        //     })
+        // }
+        var resp;
+        var params;
+        var contentRender="";
+        var content="menu-utama";
+        const tombols=$(".tombol");
+        tombols.each((i,el)=>{
+            el.addEventListener("click",(ev)=>{
+                contentTemp=el.getAttribute("content");
+                tombols.removeClass("btn-primary")
+                tombols.removeClass("btn-outline-primary")
+                tombols.addClass("btn-outline-primary")
+                el.classList="btn btn-small btn-primary w-100 tombol"
+                renderContent(contentTemp);
+            });
+        });
+
+        var channelName=""
+        var ctx;
+        
+        var opsi;
+        var opsiGrosir;
+
+        function renderUlang(content){
+            const subMenu=$(".sub-menu");
+            console.log(subMenu)
+            subMenu.each((i,el)=>{
+                el.addEventListener("click",(event)=>{    
+                    subMenu.removeClass("btn-primary");
+                    subMenu.removeClass("btn-outline-primary");
+                    subMenu.addClass("btn-outline-primary")
+                    el.classList="btn-primary p-2 rounded-right sub-menu"
+                })
+            });
+            const cariBarang=$("#cari-barang-submit");
+            cariBarang.click(event=>{
+                params={
+                    "search":$("#cari-barang").val()
+                }
+                renderContent(content)
+            });
+            $("#cari-barang").keypress(ev=>{
+                var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
+                if(keyCode == "13"){
+                    params={
+                        "search":$("#cari-barang").val()
+                    }
+                    renderContent(content)
+                }
+            });
+            $(".hapus-produk").each((i,el)=>{
+                el.addEventListener("click",ev=>{
+                    ipcRenderer.sendSync("barang-delete",{"id":el.getAttribute('val')});
+                    renderUlang("barang");
+                    el.parentElement.parentElement.innerHTML="";
+                })
+            });
+            if(content === "penjualan"){
+                renderGraph();
+            }
+
+            $("#submit-buat-supplier").click(ev=>{
+                ev.preventDefault();
+                const alamatSupplier=$("#alamat-supplier").val();
+                const namaSupplier=$("#nama-supplier").val();
+                const kontakSupplier=$("#kontak-supplier").val();
+                const data={
+                    "alamatSupplier":alamatSupplier,
+                    "namaSupplier":namaSupplier,
+                    "kontakSupplier":kontakSupplier
+                }
+                ipcRenderer.sendSync("buat-supplier",data);
+                contentRender=renderContent("supplier");
+                window.location.reload();
+                // $("#tambah-supplier").modal("hide");
+            })
+
+            $("#cari-supplier-submit").click(ev=>{
+                params={
+                    "search":$("#cari-supplier").val()
+                }
+                renderContent(content);
+            });
+            $("#cari-supplier").keypress(ev=>{
+                var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
+                if(keyCode == "13"){
+                    params={
+                        "search":$("#cari-supplier").val()
+                    }
+                    renderContent(content)
+                }
+            });
+
+            $("#buat-transaksi").click(ev=>{
+                contentRender=menuUtamaRender({
+                    "section":"buat-transaksi"
+                });
+                $("#content").html(contentRender);
+                renderUlang(content);
+            });
+
+            $("#list-transaksi").click(ev=>{
+                renderContent(content);
+                renderUlang(content);
+                // contentRender=menuUtamaRender();
+                // $("#content").html(contentRender);
+            });
+
+            $(".dropdown-menu button.dropdown-item").click(ev=>{
+                ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                console.log(ev.target.parentElement.parentElement.parentElement);
+                const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].value ?? 0;
+                    // console.log(produkId)
+                getHarga(ev,produkId,grosirId,kuantitas);
+                $(".dropdown-menu button.dropdown-item").click(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                    ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                    console.log(ev.target.parentElement.parentElement.parentElement);
+                    const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                    const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                    const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                        // console.log(produkId)
+                    getHarga(ev,produkId,grosirId,kuantitas);
+                    // console.log(produkId)
+                });
+                // console.log(produkId)
+            });
+
+            $("input.kuantitas").keyup(ev=>{
+                ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+                const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                // console.log(produkId)
+                getHarga(ev,produkId,grosirId,ev.target.value);
+            });
+
+            $("#tambah-produk").click(ev=>{
+                ev.preventDefault();
+                // console.log($("#forms-input").children().add("test"))
+                const appending=`<div class="container p-2 text-center row produk">
+                    <div class="col-sm-3">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Produk
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                ${opsi}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Satuan Harga
+                            </button>
+                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                ${semuaGrosir}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <div>
+                            <div>
+                                <input type="number" class="form-control kuantitas" id="nama-supplier" aria-describedby="emailHelp" placeholder="Kuantitas">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <small></small>
+                    </div>
+                </div>`
+                $("#forms-input").append(appending);
+                // renderUlang(content)
+                $(".dropdown-menu button.dropdown-item").click(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                    ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                    console.log(ev.target.parentElement.parentElement.parentElement);
+                    const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                    const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                    const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                        // console.log(produkId)
+                    getHarga(ev,produkId,grosirId,kuantitas);
+                    $(".dropdown-menu button.dropdown-item").click(ev=>{
+                        ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                        ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                        console.log(ev.target.parentElement.parentElement.parentElement);
+                        const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                        const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                        const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                            // console.log(produkId)
+                        getHarga(ev,produkId,grosirId,kuantitas);
+                        // console.log(produkId)
+                    });
+                    // console.log(produkId)
+                });
+
+                $("input.kuantitas").keyup(ev=>{
+                    // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+                    ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                    const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                    const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                    // console.log(produkId)
+                    getHarga(ev,produkId,grosirId,ev.target.value);
+                });
+            })
+
+        }
+
+        function getHarga(node,produkId,grosirId,kuantitas){
+            data={
+                produkId:produkId,
+                grosirId:grosirId,
+                kuantitas:kuantitas
+            }
+            console.log(data);
+            var resp=ipcRenderer.sendSync("get-harga",data);
+            if(resp.data.length>0){
+                const harga=(resp.data[0].harga*kuantitas).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                node.target.parentElement.parentElement.parentElement.parentElement.children[3].innerHTML=`<small class="text-bold">Rp, ${harga}</small>`;
+            }
+            // console.log(node.target);
+        }
+
+        function renderGraph(){
+            var resp=ipcRenderer.sendSync("penjualan",{});
+            console.log("DARI RENDER GRAPH")
+            console.log(resp);
+            const ctx=document.getElementById("penjualanChart").getContext("2d");
+            const penjualanChart=new Chart(ctx,{
+                type: 'bar',
+                data: {
+                    labels: resp.data.tanggal,
+                    datasets: [{
+                        label: 'Jumlah Penjualan',
+                        data: resp.data.total_per_hari,
+                        backgroundColor:'rgba(255, 100, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 0.2)',
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    scaleLabel:function(label){return  '$' + label.value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");},
+                    scales: {
+                        yAxes: [{
+                            ticks: {
+                                beginAtZero: true,
+                                callback: function(value, index, values) {
+                                    if(parseInt(value) >= 1000){
+                                        return 'Rp' + value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                                    } else {
+                                        return 'Rp' + value;
+                                    }
+                                }
+                            }
+                        }]
+                    }
+                }
+            });
+        }
+
+        var contentData;
+        var totalHarga=0;
+        var itemBarang=0;
+
+        var menu=["menu-utama","supplier","barang","pelanggan","pembelian","penjualan"];
+
+        menu.forEach(el=>{
+            ipcRenderer.on(el,(ev,data)=>{
+                contentData=data;
+            })
+        })
+        function menuUtamaRender(data){
+            res=''
+            loop=""
+            if(data.section === "buat-transaksi"){
+                var semuaBarang=ipcRenderer.sendSync("semua-barang");
+                var semuaGrosirs=ipcRenderer.sendSync("semua-grosir");
+                opsi=""
+                semuaGrosir=""
+                for(barang of semuaBarang.data){
+                    opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+                }
+                // console.log(semuaGrosirs)
+                for(grosir of semuaGrosirs.data){
+                    semuaGrosir+=`<button class="dropdown-item" type="button" idbarang="${grosir.id}" id="grosir-${grosir.id}">${grosir.nama_jenis}</button>`
+                }
+                console.log(semuaGrosir)
+                res=`
+                <div class="d-flex bd-highlight">
+                    <div class="bd-highlight">
+                        <div type="button" style="width:250px;" class="text-center">
+                            <div class="btn-outline-primary p-2 rounded-right sub-menu" id="list-transaksi">Transaksi Terkahir</div>
+                        </div>
+                        <div type="button" style="width:250px;" class="text-center">
+                            <div class="btn-primary border p-2 rounded-right sub-menu" id="buat-transaksi">Buat Transaksi</div>
+                        </div>
+                    </div>
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        <form>
+                            <div id="forms-input">
+                                <div class="container p-2 text-center row produk">
+                                    <div class="col-sm-3">
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="item-barang-${itemBarang}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                Produk
+                                            </button>
+                                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                                ${opsi}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                Satuan Harga
+                                            </button>
+                                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                                ${semuaGrosir}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <div>
+                                            <div>
+                                                <input type="number" class="form-control kuantitas" id="nama-supplier" aria-describedby="emailHelp" placeholder="Kuantitas">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-3">
+                                        <small></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="container m-5 text-center">
+                                <button id="tambah-produk" class="btn btn-primary">Tambah Produk</button>
+                            </div>
+                            <hr/>
+                            <div class="container row">
+                                <h3 class="col-sm-6" id="total-harga">Rp ${totalHarga}</h3>
+                                <button type="submit" class="btn btn-success col-sm-6" id="submit-buat-supplier">Konfirmasi</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                `
+            } else {
+                for(obj of data.data){
+                    loop+=`
+                        <tr>
+                            <td scope="row">${obj.id}</td>
+                            <td>${obj.waktu_order}</td>
+                            <td>
+                                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#transaksi-${obj.id}" data-whatever="${obj.id}">Lihat</button>
+                                <div class="modal fade" id="transaksi-${obj.id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                                <div class="modal-dialog" role="document">
+                                    <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="exampleModalLabel">${obj.waktu_order}</h5>
+                                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                    </div>
+                                    </div>
+                                </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `
+                }
+                res+=`<table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">id</th>
+                            <th scope="col">waktu transaksi</th>
+                            <th scope="col">detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>${loop}</tbody>
+                    </table>
+                    `
+                res=`
+                    <div class="d-flex bd-highlight">
+                        <div class="bd-highlight">
+                            <div type="button" style="width:250px;" class="text-center">
+                                <div class="btn-primary p-2 rounded-right sub-menu" id="list-transaksi">Transaksi Terkahir</div>
+                            </div>
+                            <div type="button" style="width:250px;" class="text-center">
+                                <div class="btn-outline-primary border p-2 rounded-right sub-menu" id="buat-transaksi">Buat Transaksi</div>
+                            </div>
+                        </div>
+                        <div class="pr-2 pl-2 flex-fill bd-highlight">
+                            ${res}
+                        </div>
+                    </div>
+                `
+            }
+            return res;
+        }
+
+        function hapusSupplier(id){
+            $("#supplier-"+id).parent().parent().html("");
+            ipcRenderer.sendSync("hapus-supplier",{id});
+        }
+
+        function supplierRender(data){
+            console.log(data)
+            res=''
+            loop=""
+            for(obj of data.data){
+                loop+=`
+                    <tr>
+                        <td scope="row">${obj.id}</td>
+                        <td>${obj.nama}</td>
+                        <td>${obj.alamat}</td>
+                        <td>${obj.kontak}</td>
+                        <td>
+                            <button type="button" class="btn btn-danger" id="supplier-${obj.id}" onclick="hapusSupplier(${obj.id})">Hapus</button>
+                        </td>
+                    </tr>
+                `
+            }
+            res+=`<table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Nama Supplier</th>
+                        <th scope="col">Alamat</th>
+                        <th scope="col">Kontak</th>
+                        <th scope="col">Hapus</th>
+                    </tr>
+                </thead>
+                <tbody>${loop}</tbody>
+                </table>
+                `
+            res=`
+                <div class="input-group mb-2 p-2">
+                    <input type="text" id="cari-supplier" class="form-control" placeholder="Masukkan nama toko supplier .." aria-label="Recipient's username" aria-describedby="basic-addon2">
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-info" type="button" id="cari-supplier-submit">Cari</button>
+                    </div>
+                </div>
+                <div class="container mb-2 text-center">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#tambah-supplier">Tambah Supplier</button>
+                    <div class="modal fade" id="tambah-supplier" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLabel">Tambah Data Supplier</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form>
+                                <div class="form-group">
+                                    <input type="text" class="form-control" id="nama-supplier" aria-describedby="emailHelp" placeholder="Nama supplier">
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" class="form-control" id="alamat-supplier" aria-describedby="emailHelp" placeholder="Alamat supplier">
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" class="form-control" id="kontak-supplier" aria-describedby="emailHelp" placeholder="Kontak supplier">
+                                </div>
+                                <button type="submit" class="btn btn-primary" id="submit-buat-supplier">Buat</button>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                        </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                <div class="d-flex bd-highlight">
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        ${res}
+                    </div>
+                </div>
+            `
+            return res;
+        }
+
+        function barangRender(data,search){
+            res=''
+            loop=""
+            console.log(data);
+            for(obj of data.data){
+                grosirs='';
+                for(grosir in obj.grosir){
+                    if(grosir == "null"){
+                        grosirs="<h4>Produk ini tidak dijual dengan harga grosir</h4>"
+                        break;
+                    }
+                    var quantity='';
+                    for(quan of obj.grosir[grosir]){
+                        harga_total=quan.kuantitas*quan.harga_satuan
+                        quantity+=`
+                            <tr>
+                                <td>${quan.kuantitas}</td>
+                                <td>${quan.harga_satuan == null?quan.harga_satuan:quan.harga_satuan.toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,")}</td>
+                                <td>${harga_total.toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,")}</td>
+                            </tr>
+                        `
+                    }
+                    grosirs+=`
+                    <div class="container">
+                        <small class="text-center font-weight-bold">${grosir} :</small>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Kuantitas</th>
+                                    <th scope="col">Harga Satuan</th>
+                                    <th scope="col">Total Harga</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                    ${quantity}
+                            </tbody>
+                        </table>
+                    </div>
+                    `
+                }
+                loop+=`
+                    <tr>
+                        <td>${obj.nama}</td>
+                        <td>${obj.harga.toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,")}</td>
+                        <td>${obj.kode_barang ?? ""}</td>
+                        <td>
+                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-grosir-${obj.id}" data-whatever="${obj.id}">Lihat</button>
+                            <div class="modal fade" id="modal-grosir-${obj.id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">${obj.nama}</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    ${grosirs}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-warning">Edit</button>
+                        </td>
+                        <td>
+                            <button class="btn btn-danger hapus-produk" val="${obj.id}">Hapus</button>
+                        </td>
+                    </tr>
+                `
+            }
+            res+=`
+            <div class="input-group mb-3">
+                <input type="text" id="cari-barang" class="form-control" placeholder="Masukkan nama produk .." aria-label="Recipient's username" aria-describedby="basic-addon2">
+                <div class="input-group-append">
+                    <button class="btn btn-outline-info" type="button" id="cari-barang-submit">Cari</button>
+                </div>
+            </div>
+            <div class="container text-center mb-2">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#tambah-produk" data-whatever="data">Tambah Produk</button>
+                            <div class="modal fade" id="tambah-produk" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">Tambahkan Produk</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Nama produk">
+                                        </div>
+                                        <div class="form-group">
+                                            <input type="text" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Kode produk (opsional)">
+                                        </div>
+                                        <div class="form-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text" id="basic-addon1">- Rp,</span>
+                                                <input type="number" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Harga satuan produk">
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Submit</button>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+                </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Nama Produk</th>
+                        <th scope="col">Harga Satuan Rupiah</th>
+                        <th scope="col">Kode Produk</th>
+                        <th scope="col">Grosir</th>
+                        <th scope="col">Edit</th>
+                        <th scope="col">Hapus</th>
+                    </tr>
+                </thead>
+                <tbody>${loop}</tbody>
+                </table>
+                `
+            res=`
+                <div class="d-flex bd-highlight">
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        ${res}
+                    </div>
+                </div>
+            `
+            return res;
+        }
+
+        function pelangganRender(data){
+            res=''
+            loop=""
+            for(obj of data.data){
+                loop+=`
+                    <tr>
+                        <th scope="row">${obj.id}</th>
+                        <td>${obj.name}</th>
+                    </tr>
+                `
+            }
+            res+=`<table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">id</th>
+                        <th scope="col">name</th>
+                    </tr>
+                </thead>
+                <tbody>${loop}</tbody>
+                </table>
+                `
+            res=`
+                <div class="d-flex bd-highlight">
+                    <div class="bd-highlight">
+                        <div style="width:250px;" class="text-center">
+                            <div class="btn-primary p-2 rounded-right sub-menu">Daftar Pelanggan</div>
+                        </div>
+                        <div style="width:250px;" class="text-center">
+                            <div class="btn-outline-primary border p-2 rounded-right sub-menu">Pertumbuhan Pelanggan</div>
+                        </div>
+                    </div>
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        ${res}
+                    </div>
+                </div>
+            `
+            return res;
+        }
+
+        function pembelianRender(data){
+            res=''
+            loop=""
+            for(obj of data.data){
+                loop+=`
+                    <tr>
+                        <th scope="row">${obj.id}</th>
+                        <td>${obj.name}</th>
+                    </tr>
+                `
+            }
+            res+=`<table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">id</th>
+                        <th scope="col">name</th>
+                    </tr>
+                </thead>
+                <tbody>${loop}</tbody>
+                </table>
+                `
+            res=`
+                <div class="d-flex bd-highlight">
+                    <div class="bd-highlight">
+                        <div style="width:250px;" class="text-center">
+                            <div class="btn-primary p-2 rounded-right sub-menu">Daftar Pembelian</div>
+                        </div>
+                        <div style="width:250px;" class="text-center">
+                            <div class="btn-outline-primary border p-2 rounded-right sub-menu">Pertumbuhan Pembelian</div>
+                        </div>
+                    </div>
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        ${res}
+                    </div>
+                </div>
+            `
+            return res;
+        }
+
+        function penjualanRender(data){
+            res=''
+            res=`
+                <div class="d-flex bd-highlight">
+                    <div class="pr-2 pl-2 flex-fill bd-highlight">
+                        <canvas id="penjualanChart" width="100%" height="50vh"></canvas>
+                    </div>
+                </div>
+            `
+            return res;
+        }
+
+        function renderContent(content){
+            console.log(params);
+            resp=ipcRenderer.sendSync(content,params??{});
+            if(content === "menu-utama"){
+                contentRender=menuUtamaRender(resp);
+            } else if(content === "supplier"){
+                contentRender=supplierRender(resp);
+            } else if(content === "barang"){
+                contentRender=barangRender(resp,{});
+            } else if(content === "pelanggan"){
+                contentRender=pelangganRender(resp);
+            } else if(content === "pembelian"){
+                contentRender=pembelianRender(resp);
+            } else if(content === "penjualan"){
+                contentRender=penjualanRender(resp);
+            }
+            contentData=resp;
+            $("#content").html(contentRender);
+            renderUlang(content);
+        }
+        renderContent(content)
+
+    </script>
+</body>
+</html>

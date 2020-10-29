@@ -213,7 +213,139 @@
                 getHarga(ev,produkId,grosirId,ev.target.value);
             });
 
+            $("#submit-buat-belanja").click(ev=>{
+                ev.preventDefault()
+                var totalHarga=0;
+                var belanja=Array();
+                const totalProduk=$(".produk");
+                totalProduk.each((i,produk)=>{
+                    totalHarga+=parseInt(produk.getAttribute("sub-total"));
+                    var dataBelanja={
+                        produkId:produk.children[0].getAttribute("nilai"),
+                        grosirId:produk.children[1].getAttribute("nilai"),
+                        kuantitas:produk.children[2].getAttribute("nilai"),
+                        subTotal:produk.getAttribute("sub-total")
+                    }
+                    belanja.push(dataBelanja);
+                });
+                var sendData={
+                    "belanja":belanja,
+                    "total_harga":totalHarga
+                }
+                console.log(sendData);
+                if(totalHarga > 0){
+                    var resp=ipcRenderer.sendSync("transaksi-service",sendData);
+                    if(resp.inserted){
+                        window.location.reload();
+                    }
+                }
+            });
+
+            $("#tambah-harga-grosir").click(ev=>{
+                ev.preventDefault();
+                var grosirElement=renderTambahHargaGrosir()
+                $("#form-tambah-list-harga-grosir").append(grosirElement);
+                $(".dropdown-menu button.dropdown-item").click(ev=>{
+                    ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                    ev.target.parentElement.parentElement.parentElement.parentElement.children[0].setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                });
+                $(".tambah-grosir-minimum-pembelian").keyup(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.parentElement.children[1].setAttribute("nilai",ev.target.value);
+                })
+                $(".tambah-grosir-harga-grosir").keyup(ev=>{
+                    console.log(ev.target.parentElement.parentElement.parentElement);
+                    ev.target.parentElement.parentElement.parentElement.parentElement.children[2].setAttribute("nilai",ev.target.value);
+                });
+            });
+
+            $("#submit-tambah-list-produk").click(ev=>{
+                var hargaGrosir=$("#form-tambah-list-harga-grosir").children();
+                const namaProduk=$("#tambah-produk-nama-produk").val();
+                const kodeProduk=$("#tambah-produk-kode-produk").val();
+                const hargaSatuan=$("#tambah-produk-harga-satuan").val();
+                var dataGrosir=Array();
+                hargaGrosir.each((i,el)=>{
+                    var data={
+                        grosirId:el.children[0].getAttribute("nilai"),
+                        minimumPembelian:el.children[1].getAttribute("nilai"),
+                        hargaGrosir:el.children[2].getAttribute("nilai")
+                    }
+                    dataGrosir.push(data);
+                });
+                var data={
+                    namaProduk:namaProduk,
+                    kodeProduk:kodeProduk,
+                    hargaSatuan:hargaSatuan,
+                    hargaGrosir:dataGrosir
+                }
+                console.log(data);
+                var resp=ipcRenderer.sendSync("tambah-list-barang",data);
+                if(resp.inserted){
+                    window.location.reload();
+                }
+            });
+
+            $(".cari-semua-barang").keypress(ev=>{
+                // ev.preventDefault();
+                var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
+                if(keyCode == "13"){
+                    params={
+                        "search":ev.target.value
+                    }
+                    var semuaBarang=ipcRenderer.sendSync("semua-barang",params);
+                    opsi=""
+                    for(barang of semuaBarang.data){
+                        opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+                    }
+                    var nextNode=ev.target.nextElementSibling;
+                    var twoNext=nextNode != undefined ? ev.target.nextElementSibling.nextElementSibling : null;
+                    while(nextNode!=null){
+                        nextNode.remove();
+                        nextNode=twoNext;
+                        twoNext=twoNext == null ? null : twoNext.nextElementSibling;
+                    }
+                    console.log(ev.target.parentElement);
+                    ev.target.parentElement.innerHTML+=opsi;
+                    semuaBarang=ipcRenderer.sendSync("semua-barang");
+                    opsi=""
+                    for(barang of semuaBarang.data){
+                        opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+                    }
+                    $(".dropdown-menu button.dropdown-item").click(ev=>{
+                        ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                        ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                        console.log(ev.target.parentElement.parentElement.parentElement);
+                        const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                        const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                        const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                            // console.log(produkId)
+                        getHarga(ev,produkId,grosirId,kuantitas);
+                        $(".dropdown-menu button.dropdown-item").click(ev=>{
+                            ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                            ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                            console.log(ev.target.parentElement.parentElement.parentElement);
+                            const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                            const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                            const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                                // console.log(produkId)
+                            getHarga(ev,produkId,grosirId,kuantitas);
+                            // console.log(produkId)
+                        });
+                        // console.log(produkId)
+                    });
+
+                    $("input.kuantitas").keyup(ev=>{
+                        // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+                        ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                        const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                        const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                        // console.log(produkId)
+                        getHarga(ev,produkId,grosirId,ev.target.value);
+                    });
+                }
+            });
             $("#tambah-produk").click(ev=>{
+                
                 ev.preventDefault();
                 // console.log($("#forms-input").children().add("test"))
                 const appending=`<div class="container p-2 text-center row produk">
@@ -223,6 +355,7 @@
                                 Produk
                             </button>
                             <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                <input type="text" class="form-control cari cari-semua-barang" aria-describedby="emailHelp" placeholder="Cari Barang ..">
                                 ${opsi}
                             </div>
                         </div>
@@ -248,6 +381,7 @@
                         <small></small>
                     </div>
                 </div>`
+                console.log(appending);
                 $("#forms-input").append(appending);
                 // renderUlang(content)
                 $(".dropdown-menu button.dropdown-item").click(ev=>{
@@ -281,8 +415,81 @@
                     // console.log(produkId)
                     getHarga(ev,produkId,grosirId,ev.target.value);
                 });
+
+                $(".cari-semua-barang").keypress(ev=>{
+                    var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
+                    if(keyCode == "13"){
+                        params={
+                            "search":ev.target.value
+                        }
+                        ev.preventDefault();
+                        var semuaBarang=ipcRenderer.sendSync("semua-barang",params);
+                        opsi=""
+                        for(barang of semuaBarang.data){
+                            opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+                        }
+                        var nextNode=ev.target.nextElementSibling;
+                        var twoNext=nextNode != undefined ? ev.target.nextElementSibling.nextElementSibling : null;
+                        while(nextNode!=null){
+                            nextNode.remove();
+                            nextNode=twoNext;
+                            twoNext=twoNext == null ? null : twoNext.nextElementSibling;
+                        }
+                        console.log(ev.target.parentElement);
+                        ev.target.parentElement.innerHTML+=opsi;
+                        semuaBarang=ipcRenderer.sendSync("semua-barang");
+                        opsi=""
+                        for(barang of semuaBarang.data){
+                            opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+                        }
+                        $(".dropdown-menu button.dropdown-item").click(ev=>{
+                            ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                            ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                            console.log(ev.target.parentElement.parentElement.parentElement);
+                            const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                            const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                            const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                                // console.log(produkId)
+                            getHarga(ev,produkId,grosirId,kuantitas);
+                            $(".dropdown-menu button.dropdown-item").click(ev=>{
+                                ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+                                ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+                                console.log(ev.target.parentElement.parentElement.parentElement);
+                                const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                                const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                                const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+                                    // console.log(produkId)
+                                getHarga(ev,produkId,grosirId,kuantitas);
+                                // console.log(produkId)
+                            });
+                            // console.log(produkId)
+                        });
+
+                        $("input.kuantitas").keyup(ev=>{
+                            // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+                            ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                            const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                            const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                            // console.log(produkId)
+                            getHarga(ev,produkId,grosirId,ev.target.value);
+                        });
+                    }
+                });
+
             })
 
+        }
+
+        function setTotalHarga(){
+            var totalHarga=0;
+            const totalProduk=$(".produk");
+            totalProduk.each((i,produk)=>{
+                totalHarga+=parseInt(produk.getAttribute("sub-total"));
+            });
+            totalHarga=totalHarga.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            $("#total-harga").html(`
+                <h3>Total Belanja : Rp ${totalHarga}</h3>
+            `)
         }
 
         function getHarga(node,produkId,grosirId,kuantitas){
@@ -295,7 +502,9 @@
             var resp=ipcRenderer.sendSync("get-harga",data);
             if(resp.data.length>0){
                 const harga=(resp.data[0].harga*kuantitas).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                node.target.parentElement.parentElement.parentElement.parentElement.setAttribute("sub-total",resp.data[0].harga*kuantitas)
                 node.target.parentElement.parentElement.parentElement.parentElement.children[3].innerHTML=`<small class="text-bold">Rp, ${harga}</small>`;
+                setTotalHarga();
             }
             // console.log(node.target);
         }
@@ -375,7 +584,7 @@
                         </div>
                     </div>
                     <div class="pr-2 pl-2 flex-fill bd-highlight">
-                        <form>
+                        <form id="transaksi-form">
                             <div id="forms-input">
                                 <div class="container p-2 text-center row produk">
                                     <div class="col-sm-3">
@@ -384,6 +593,7 @@
                                                 Produk
                                             </button>
                                             <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                                <input type="text" class="form-control cari cari-semua-barang" aria-describedby="emailHelp" placeholder="Cari Barang ..">
                                                 ${opsi}
                                             </div>
                                         </div>
@@ -411,12 +621,12 @@
                                 </div>
                             </div>
                             <div class="container m-5 text-center">
-                                <button id="tambah-produk" class="btn btn-primary">Tambah Produk</button>
+                                <div id="tambah-produk" class="btn btn-primary">Tambah Produk</div>
                             </div>
                             <hr/>
                             <div class="container row">
-                                <h3 class="col-sm-6" id="total-harga">Rp ${totalHarga}</h3>
-                                <button type="submit" class="btn btn-success col-sm-6" id="submit-buat-supplier">Konfirmasi</button>
+                                <h3 class="col-sm-10" id="total-harga">Total Belanja : Rp ${totalHarga}</h3>
+                                <button type="submit" class="btn btn-success col-sm-2" id="submit-buat-belanja">Konfirmasi</button>
                             </div>
                         </form>
                     </div>
@@ -424,6 +634,19 @@
                 `
             } else {
                 for(obj of data.data){
+                    dataBelanja="";
+                    hargaBarang=obj.total_harga.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    for(dataBarang of obj.barang){
+                        subTotal=dataBarang.sub_total ? "Rp"+dataBarang.sub_total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : null
+                        dataBelanja+=`
+                        <div class="container">
+                            <small>${dataBarang.nama_barang}</small>
+                            <small>${dataBarang.kuantitas} x </small>
+                            <small>${dataBarang.nama_jenis}</small>
+                            <small>${subTotal}</small>
+                        </div>
+                        `
+                    }
                     loop+=`
                         <tr>
                             <td scope="row">${obj.id}</td>
@@ -440,6 +663,9 @@
                                         </button>
                                     </div>
                                     <div class="modal-body">
+                                        ${dataBelanja}
+                                        <hr/>
+                                        <h3>Total Belanja : Rp${hargaBarang}</h3>
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
@@ -564,6 +790,54 @@
             return res;
         }
 
+        function getHargaGrosir(){
+            var semuaGrosir=ipcRenderer.sendSync("semua-grosir");
+            return semuaGrosir.data;
+        }
+
+        function renderPilihanGrosir(){
+            var grosir=getHargaGrosir();
+            var pilihanGrosir="";
+            for(gros of grosir){
+                pilihanGrosir+=`<button type="button" class="dropdown-item" idbarang=${gros.id}>${gros.nama_jenis}</button>`
+            }
+            var element=`
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    jenis grosir
+                </button>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    ${pilihanGrosir}
+                </div>
+            </div>
+            `
+            return element;
+        }
+
+        function renderTambahHargaGrosir(){
+            var pilihanGrosir=renderPilihanGrosir();
+            element=`
+                <div class="container p-1 row tambah-grosir-input">
+                    <div class="col-sm-4">${pilihanGrosir}</div>
+                    <div class="col-sm-4">
+                        <div>
+                            <div>
+                                <input class="form-control tambah-grosir-minimum-pembelian" type="text" placeholder="Minimum Pembelian"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div>
+                            <div>
+                                <input class="form-control tambah-grosir-harga-grosir" type="number" placeholder="harga grosir"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+            return element;
+        }
+
         function barangRender(data,search){
             res=''
             loop=""
@@ -631,9 +905,6 @@
                             </div>
                         </td>
                         <td>
-                            <button class="btn btn-warning">Edit</button>
-                        </td>
-                        <td>
                             <button class="btn btn-danger hapus-produk" val="${obj.id}">Hapus</button>
                         </td>
                     </tr>
@@ -647,8 +918,8 @@
                 </div>
             </div>
             <div class="container text-center mb-2">
-                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#tambah-produk" data-whatever="data">Tambah Produk</button>
-                            <div class="modal fade" id="tambah-produk" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#tambah-list-produk" data-whatever="data">Tambah Produk</button>
+                            <div class="modal fade" id="tambah-list-produk" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
                             <div class="modal-dialog" role="document">
                                 <div class="modal-content">
                                 <div class="modal-header">
@@ -659,22 +930,28 @@
                                 </div>
                                 <div class="modal-body">
                                     <form>
-                                        <div class="form-group">
-                                            <input type="text" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Nama produk">
-                                        </div>
-                                        <div class="form-group">
-                                            <input type="text" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Kode produk (opsional)">
-                                        </div>
-                                        <div class="form-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text" id="basic-addon1">- Rp,</span>
-                                                <input type="number" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Harga satuan produk">
+                                        <div id="form-tambah-list-barang">
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="tambah-produk-nama-produk" aria-describedby="emailHelp" placeholder="Nama produk">
+                                            </div>
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="tambah-produk-kode-produk" aria-describedby="emailHelp" placeholder="Kode produk (opsional)">
+                                            </div>
+                                            <div class="form-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text" id="basic-addon1">- Rp,</span>
+                                                    <input type="number" class="form-control" id="tambah-produk-harga-satuan" aria-describedby="emailHelp" placeholder="Harga satuan produk">
+                                                </div>
+                                            </div>
+                                            <div id="form-tambah-list-harga-grosir">
                                             </div>
                                         </div>
-                                        <button type="submit" class="btn btn-primary">Submit</button>
+                                        <br/>
+                                        <button type="submit" class="btn btn-primary" id="tambah-harga-grosir">Tambah Harga Grosir</button>
                                     </form>
                                 </div>
                                 <div class="modal-footer">
+                                    <button type="submit" class="btn btn-success" id="submit-tambah-list-produk">Tambah Produk</button>
                                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
                                 </div>
                                 </div>
@@ -688,7 +965,6 @@
                         <th scope="col">Harga Satuan Rupiah</th>
                         <th scope="col">Kode Produk</th>
                         <th scope="col">Grosir</th>
-                        <th scope="col">Edit</th>
                         <th scope="col">Hapus</th>
                     </tr>
                 </thead>

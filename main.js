@@ -39,25 +39,54 @@ const init=()=>{
     // ===================== MENU UTAMA SERVICE ==================================
     const menuUtamaService="menu-utama";
     const menuUtamaListener=async(ev,data)=>{
-        var sql=`SELECT *,ord.id AS id,GROUP_CONCAT(produk.id,',') AS produk_ids FROM 'order' AS ord LEFT JOIN order_barang AS ord_bar ON ord_bar.order_id=ord.id LEFT JOIN jenis_grosir AS grosir ON grosir.id=ord_bar.grosir_id LEFT JOIN produk AS produk ON produk.id=ord_bar.produk_id GROUP BY ord.id ORDER BY ord.id DESC
+        var sql=`SELECT *,ord.id AS id,GROUP_CONCAT(produk.id,',') AS produk_ids FROM 'order' AS ord LEFT JOIN order_barang AS ord_bar ON ord_bar.order_id=ord.id LEFT JOIN jenis_grosir AS grosir ON grosir.id=ord_bar.grosir_id LEFT JOIN produk AS produk ON produk.id=ord_bar.produk_id GROUP BY ord_bar.id ORDER BY ord.id DESC
         `;
         var res;
         console.log(sql);
         db.all(sql,(err,rows)=>{
             if(err)throw err;
+            console.log(rows);
+            transaksi=Object();
+            for(data of rows){
+                if(transaksi[data.id] == undefined){
+                    transaksi[data.id]={
+                        id:data.id,
+                        waktu_order:data.waktu_order,
+                        total_harga:data.total_harga,
+                        barang:[{
+                            nama_barang:data.nama,
+                            nama_jenis:data.nama_jenis ?? "satuan",
+                            kuantitas:data.kuantitas,
+                            sub_total:data.sub_total
+                        }]
+                    }
+                } else {
+                    transaksi[data.id].barang.push({
+                        nama_barang:data.nama,
+                        nama_jenis:data.nama_jenis ?? "satuan",
+                        kuantitas:data.kuantitas,
+                        sub_total:data.sub_total
+                    })
+                }
+            }
+            belanjaan=Array();
+            for(data in transaksi){
+                belanjaan.unshift(transaksi[data]);
+            }
+            console.log(belanjaan)
             ev.reply(menuUtamaService,{
                 "service":menuUtamaService,
                 "bener":false,
                 "angka":12,
                 "arr":[5,4,2,5,2],
-                "data":rows
+                "data":belanjaan
             });
             ev.returnValue={
                 "service":menuUtamaService,
                 "bener":false,
                 "angka":12,
                 "arr":[5,4,2,5,2],
-                "data":rows
+                "data":belanjaan
             }
         });
         
@@ -67,6 +96,9 @@ const init=()=>{
     const semuaBarangService="semua-barang";
     const semuaBarangListener=(ev,data)=>{
         var sql="SELECT id,nama FROM produk";
+        if(data != undefined){
+            sql+=" WHERE nama LIKE '%"+data.search+"%'"
+        }
         db.all(sql,(err,rows)=>{
             if(err)throw err;
             ev.returnValue={
@@ -127,6 +159,35 @@ const init=()=>{
     }
     ipcMain.on(getHargaService,getHargaListener);
 
+
+    const buatTransaksiService="transaksi-service";
+    const buatTransaksiListener=(ev,data)=>{
+        var sql=`INSERT INTO 'order' (total_harga) VALUES (${data.total_harga})`
+        db.run(sql,(err)=>{
+            if(err)throw err;
+            sql=`SELECT last_insert_rowid() AS inserting;`;
+            db.all(sql,(err,rows)=>{
+                if(err)throw err;
+                const orderId=rows[0].inserting;
+                var query="";
+                for(barang of data.belanja){
+                    if(barang.grosirId == 0){
+                        barang.grosirId=null
+                    }
+                    query+=`INSERT INTO order_barang (produk_id,kuantitas,grosir_id,order_id,sub_total) VALUES (${barang.produkId},${barang.kuantitas},${barang.grosirId},${orderId},${barang.subTotal});`
+                }
+                console.log(query);
+                db.exec(query,(err)=>{
+                    console.log("EXECUTED");
+                    if(err)throw err;
+                    ev.returnValue={
+                        "inserted":true
+                    }
+                })
+            })
+        })
+    }
+    ipcMain.on(buatTransaksiService,buatTransaksiListener);
 
 
     // ===================== SUPPLIER SERVICE ==================================
@@ -261,6 +322,33 @@ const init=()=>{
         });
     }
     ipcMain.on(deleteBarangService,deleteBarangListener)
+
+    const tambahListBarangService="tambah-list-barang";
+    const tambahListBarangListener=(ev,data)=>{
+        var sql=`INSERT INTO produk (nama,harga,kode_barang,gambar,deskripsi) VALUES ('${data.namaProduk}',${data.hargaSatuan},'${data.kodeProduk}','','')`;
+        db.run(sql,(err)=>{
+            if(err)throw err;
+            sql=`SELECT last_insert_rowid() AS inserting;`
+            db.all(sql,(err,rows)=>{
+                if(err)throw err;
+                const produkId=rows[0].inserting;
+                sql=""
+                for(grosir of data.hargaGrosir){
+                    if(grosir.grosirId == 0){
+                        grosir.grosirId=1
+                    }
+                    sql+=`INSERT INTO produk_grosir (jenis_id,produk_id,harga_grosir,kuantitas) VALUES (${grosir.grosirId},${produkId},${grosir.hargaGrosir},${grosir.minimumPembelian});`
+                }
+                db.exec(sql,(err)=>{
+                    if(err)throw err;
+                    ev.returnValue={
+                        "inserted":true
+                    }
+                })
+            })
+        })
+    }
+    ipcMain.on(tambahListBarangService,tambahListBarangListener)
 
     // ===================== PELANGGAN SERVICE ==================================
     const pelangganService="pelanggan";

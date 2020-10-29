@@ -2,8 +2,22 @@ const { app,BrowserWindow, ipcMain }=require("electron");
 const sqlite=require("sqlite3").verbose();
 
 const path = require('path') 
-const env = process.env.NODE_ENV || 'development'; 
-  
+const env = process.env.NODE_ENV || 'development';
+
+const ThermalPrinter=require("node-thermal-printer").printer;
+const PrinterTypes=require("node-thermal-printer").types;
+
+let printer=new ThermalPrinter({
+    type:PrinterTypes.EPSON,
+    interface:"/dev/usb/lp0",
+    characterSet:"SLOVENIA",
+    removeSpecialCharacters:false,
+    lineCharacter:"=",
+    options:{
+        timeout:5000
+    }
+});
+
 // If development environment 
 if (env === 'development') { 
     require('electron-reload')(__dirname, { 
@@ -32,6 +46,7 @@ createWindow=()=>{
 // app.whenReady().then(createWindow);
 
 const init=()=>{
+
     createWindow();
     
     const CHANNEL_NAME=["menu-utama","supplier","barang","pelanggan","pembelian","penjualan"];
@@ -177,12 +192,36 @@ const init=()=>{
                     query+=`INSERT INTO order_barang (produk_id,kuantitas,grosir_id,order_id,sub_total) VALUES (${barang.produkId},${barang.kuantitas},${barang.grosirId},${orderId},${barang.subTotal});`
                 }
                 console.log(query);
-                db.exec(query,(err)=>{
+                db.exec(query,async function(err){
                     console.log("EXECUTED");
                     if(err)throw err;
-                    ev.returnValue={
-                        "inserted":true
-                    }
+
+                    // PRINTING
+                    printer.isPrinterConnected().then((conn)=>{
+                        if(conn){
+                            printer.println("STRUK BELANJA")
+                            printer.println(Date.now().toString())
+                            printer.println("DAFTAR BELANJAAN")
+                            for(barang of data.belanja){
+                                printer.println(`${barang.produkId} ${barang.kuantitas}x${barang.grosirId} - Rp${barang.subTotal}`)
+                            }
+                            printer.println("TOTAL HARGA : "+data.total_harga)
+                            printer.execute().then((val)=>{
+                                ev.returnValue={
+                                    "inserted":true,
+                                    "printed":true
+                                }
+                            }).catch((err)=>{
+                                throw err;
+                            })
+                        } else {
+                            console.log("NOT PRINTED")
+                            ev.returnValue={
+                                "inserted":true,
+                                "printed":false
+                            }
+                        }
+                    });
                 })
             })
         })

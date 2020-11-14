@@ -543,6 +543,108 @@ const init=()=>{
         });
     }
     ipcMain.on(penjualanService,penjualanListener);
+
+    const penjualanDetailService="penjualan-detail";
+    const penjualanDetailListener=(ev,data)=>{
+        var sql="SELECT produk.*,'order'.*,grosir.*,order_id,produk_id,kuantitas,sub_total FROM order_barang AS order_barang LEFT JOIN produk AS produk ON order_barang.produk_id=produk.id LEFT JOIN 'order' ON order_barang.order_id='order'.id LEFT JOIN jenis_grosir AS grosir ON order_barang.grosir_id=grosir.id ORDER BY 'order'.waktu_order DESC"
+        db.all(sql,(err,rows)=>{
+            orderBarang=Array();
+            // orderId=0;
+            data={};
+            var yearState=0;
+            var monthState=0;
+            var dateState=0;
+            var orderIdState=0
+            for(barang of rows){
+                const date=new Date(barang["waktu_order"])
+                const orderYear=date.getFullYear();
+                const orderMonth=date.getMonth()+1;
+                const orderDate=date.getDate();
+                // Inisiasi
+                if(orderIdState === 0){
+                    // orderId=barang["order_id"];
+                    data={
+                        "order":[{
+                            "total_harga":barang["total_harga"],
+                            "order_id":barang["order_id"],
+                            "barang":[
+                                {
+                                    "nama_produk":barang["nama"],
+                                    "produk_id":barang["produk_id"],
+                                    "kuantitas":barang["kuantitas"],
+                                    "jenis_grosir":barang["nama_jenis"],
+                                    "sub_total":barang["sub_total"]
+                                }
+                            ],
+                        }],
+                        "order_tahun":orderYear,
+                        "order_bulan":orderMonth,
+                        "order_tanggal":orderDate
+                    }
+                } else {
+                    // masih di hari yg sama
+                    if(orderYear == yearState && orderMonth == monthState && orderDate == dateState){
+                        // dalam order yang sama
+                        if(barang["order_id"] == orderIdState){
+                            var length=data["order"].length;
+                            data["order"][length-1]["barang"].push({
+                                "nama_produk":barang["nama"],
+                                "produk_id":barang["produk_id"],
+                                "kuantitas":barang["kuantitas"],
+                                "jenis_grosir":barang["nama_jenis"],
+                                "sub_total":barang["sub_total"]
+                            })
+
+                            // order yang berbeda
+                        } else {
+                            data["order"].push({
+                                "total_harga":barang["total_harga"],
+                                "order_id":barang["order_id"],
+                                "barang":[{
+                                    "nama_produk":barang["nama"],
+                                    "produk_id":barang["produk_id"],
+                                    "kuantitas":barang["kuantitas"],
+                                    "jenis_grosir":barang["nama_jenis"],
+                                    "sub_total":barang["sub_total"]
+                                }]
+                            })
+                        }
+                        // Berbeda hari
+                    } else {
+                        orderBarang.push(data);
+                        data={
+                            "order":[{
+                                "total_harga":barang["total_harga"],
+                                "order_id":barang["order_id"],
+                                "barang":[
+                                    {
+                                        "nama_produk":barang["nama"],
+                                        "produk_id":barang["produk_id"],
+                                        "kuantitas":barang["kuantitas"],
+                                        "jenis_grosir":barang["nama_jenis"],
+                                        "sub_total":barang["sub_total"]
+                                    }
+                                ],
+                            }],
+                            "order_tahun":orderYear,
+                            "order_bulan":orderMonth,
+                            "order_tanggal":orderDate
+                        }
+                    }
+                }
+                yearState=orderYear;
+                monthState=orderMonth;
+                dateState=orderDate;
+                orderIdState=barang["order_id"];
+            }
+            console.log(orderBarang);
+            ev.returnValue={
+                "selected":true,
+                "data":orderBarang
+            }
+        })
+    }
+    ipcMain.on(penjualanDetailService,penjualanDetailListener)
 }
 
 app.on("ready",init)

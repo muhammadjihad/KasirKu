@@ -1032,7 +1032,7 @@
                 pilihanGrosir+=`<button type="button" class="dropdown-item" idbarang=${gros.id}>${gros.nama_jenis}</button>`
             }
             var element=`
-            <div class="dropdown" style="height:400px;overflow:scroll;">
+            <div class="dropdown">
                 <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     jenis grosir
                 </button>
@@ -1433,6 +1433,108 @@
         }
 
         function penjualanRender(data){
+            var dataPenjualan=ipcRenderer.sendSync("penjualan-detail",{})
+            console.log(dataPenjualan);
+            var orderDay="";
+            for(penjualan of dataPenjualan.data){
+
+                var dataOrder="";
+                for(order of penjualan.order){
+
+                    var dataBarang="";
+                    for(barang of order.barang){
+                        var subTotal=barang.sub_total != null ? barang.sub_total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : ""
+                        dataBarang+=`
+                            <tr>
+                                <td>${barang.nama_produk}</td>
+                                <td>${barang.jenis_grosir}</td>
+                                <td>${barang.kuantitas}</td>
+                                <td>${subTotal}</td>
+                            </tr>
+                        `
+                    }
+                    var barangSiapRender=`
+                        <table class="table">
+                            <thead>
+                                <th>Nama Produk</th>
+                                <th>Jenis Pembelian</th>
+                                <th>Kuantitas</th>
+                                <th>Harga</th>
+                            </thead>
+                            <tbody>
+                                ${dataBarang}
+                            </tbody>
+                        </table>
+                    `
+                    
+                    var totalHarga=order.total_harga != null ? order.total_harga.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "";
+                    dataOrder+=`<tr>
+                        <td>${order.order_id}</td>
+                        <td>${totalHarga}</td>
+                        <td>
+                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#history-produk-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}">Detail</button>
+                            <div class="modal fade" id="history-produk-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">ID Order : ${order.order_id}</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    ${barangSiapRender}
+                                </div>
+                                <div class="modal-footer">
+                                    <h5 class="modal-title" id="exampleModalLabel">Total Harga : ${totalHarga}</h5>
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+                        </td>
+                    </tr>`
+                }
+                var orderRender=`
+                    <table class="table">
+                        <thead>
+                            <th>ID Order</th>
+                            <th>Total Transaksi</th>
+                            <th>Detail Order</th>
+                        </thead>
+                        <tbody>
+                            ${dataOrder}
+                        </tbody>
+                    </table>
+                `
+
+                orderDay+=`
+                <tr>
+                    <td>${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}</td>
+                    <td scope="col">
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#history-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}">Detail</button>
+                        <div class="modal fade" id="history-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                        <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="exampleModalLabel">${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                ${orderRender}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                            </div>
+                            </div>
+                        </div>
+                        </div>
+                    </td>
+                </tr>
+                `
+            }
             res=''
             res=`
                 <div class="d-flex bd-highlight">
@@ -1444,17 +1546,12 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <td scope="col">Penjualan</td>
+                                <td scope="col">Tanggal Penjualan (Tahun - Bulan - Tanggal)</td>
                                 <td scope="col">Lihat Detail</td>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td scope="col">Lihat Detail</td>
-                                <td scope="col">
-                                    <button class="btn btn-primary">Detail</button>
-                                </td>
-                            </tr>
+                                ${orderDay}
                         </tbody>
                     </table>
                 </div>
@@ -1463,7 +1560,7 @@
         }
 
         function renderContent(content){
-            console.log(params);
+            // console.log(params);
             resp=ipcRenderer.sendSync(content,params??{});
             if(content === "menu-utama"){
                 contentRender=menuUtamaRender(resp);

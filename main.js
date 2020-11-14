@@ -9,12 +9,12 @@ const PrinterTypes=require("node-thermal-printer").types;
 
 let printer=new ThermalPrinter({
     type:PrinterTypes.EPSON,
-    interface:"/dev/usb/lp0",
+    interface:"\\.\COM1",
     characterSet:"SLOVENIA",
     removeSpecialCharacters:false,
     lineCharacter:"=",
     options:{
-        timeout:5000
+        timeout:10000
     }
 });
 
@@ -199,6 +199,11 @@ const init=()=>{
                     // PRINTING
                     printer.isPrinterConnected().then((conn)=>{
                         if(conn){
+                            printer.println("Toko Az-Zahra")
+                            printer.println("Jalan Raya Semangen")
+                            printer.println("Depan SD Wanajaya")
+                            printer.println("0822-1464-5888")
+                            printer.println("==================")
                             printer.println("STRUK BELANJA")
                             printer.println(Date.now().toString())
                             printer.println("DAFTAR BELANJAAN")
@@ -206,6 +211,10 @@ const init=()=>{
                                 printer.println(`${barang.produkId} ${barang.kuantitas}x${barang.grosirId} - Rp${barang.subTotal}`)
                             }
                             printer.println("TOTAL HARGA : "+data.total_harga)
+                            printer.println("==================")
+                            printer.println("Barang yang sudah dibeli")
+                            printer.println("Tidak dapat ditukar kembali")
+                            printer.println("Terimakasih")
                             printer.execute().then((val)=>{
                                 ev.returnValue={
                                     "inserted":true,
@@ -236,6 +245,7 @@ const init=()=>{
         if(data.search != undefined){
             sql+=" WHERE nama LIKE '%"+data.search+"%'"
         }
+        sql+=" ORDER BY id DESC"
         var res;
         db.all(sql,(err,rows)=>{
             if(err)throw err;
@@ -297,6 +307,7 @@ const init=()=>{
         sql+=" ORDER BY produk.id"
         var res;
         db.all(sql,(err,rows)=>{
+            console.log(rows)
             if(err)throw err;
             response=Object();
             for(row of rows){
@@ -308,22 +319,38 @@ const init=()=>{
                         "nama":row["nama"],
                         "deskripsi":row["deskripsi"],
                         "harga":row["harga"],
-                        "kode_barang":row["kode_barang"]
+                        "kode_barang":row["kode_barang"],
+                        "harga_beli":row["harga_beli"]
                     }
                     grosir={}
                     grosir[jenis]=[
-                        {"kuantitas":row["kuantitas"],"harga_satuan":row["harga_grosir"]},
+                        {
+                            "kuantitas":row["kuantitas"],
+                            "harga_satuan":row["harga_grosir"],
+                            "grosir_id":row["jenis_id"],
+                            "nama_grosir":row["nama_jenis"]
+                        },
                     ]
                     response[row["nama"]]["grosir"]=grosir
                 } else {
                     // Check apakah data grosir sudah ada di dalam object?
                     if(!(jenis in response[row["nama"]]["grosir"])){
                         response[row["nama"]]["grosir"][jenis]=[
-                            {"kuantitas":row["kuantitas"],"harga_satuan":row["harga_grosir"]}
+                            {
+                                "kuantitas":row["kuantitas"],
+                                "harga_satuan":row["harga_grosir"],
+                                "grosir_id":row["jenis_id"],
+                                "nama_grosir":row["nama_jenis"]
+                            }
                         ]
                     } else {
                         response[row["nama"]]["grosir"][jenis].push(
-                            {"kuantitas":row["kuantitas"],"harga_satuan":row["harga_grosir"]}
+                            {
+                                "kuantitas":row["kuantitas"],
+                                "harga_satuan":row["harga_grosir"],
+                                "grosir_id":row["jenis_id"],
+                                "nama_grosir":row["nama_jenis"]
+                            }
                         )
                     }
                 }
@@ -349,6 +376,44 @@ const init=()=>{
         });
     }
     ipcMain.on(barangService,barangListener)
+
+    const editBarangService="edit-barang";
+    const editBarangListener=(ev,data)=>{
+        if(!data.hargaBeliBarang){
+            data.hargaBeliBarang=0
+        }
+        var sql=`UPDATE produk SET nama='${data.namaBarang}',kode_barang='${data.kodeBarang}',harga=${data.hargaSatuan},harga_beli=${data.hargaBeliBarang ?? 0} WHERE id=${parseInt(data.idBarang)}`
+        db.exec(sql,err=>{
+            if(err)throw err;
+            var sql=`DELETE FROM produk_grosir WHERE produk_id=${data.idBarang}`;
+            db.exec(sql,err=>{
+                if(err)throw err;
+                var sql="";
+                for(grosirs of data.grosir){
+                    var jenisGrosir=grosirs.jenis_id;
+                    for(grosir of grosirs.grosir){
+                        sql+=`INSERT INTO produk_grosir (produk_id,jenis_id,kuantitas,harga_grosir) VALUES (${data.idBarang},${jenisGrosir},${grosir.kuantitas},${grosir.harga_satuan});`
+                    }
+                }
+                console.log(data.grosirTambahan)
+                for(tambahan of data.grosirTambahan){
+                    sql+=`INSERT INTO produk_grosir (produk_id,jenis_id,kuantitas,harga_grosir) VALUES (${data.idBarang},${tambahan.jenis},${tambahan.kuantitas},${tambahan.harga});`
+                }
+                db.exec(sql,err=>{
+                    if(err)throw err;
+                    ev.returnValue={
+                        'updated':true
+                    }
+                })
+            })
+        })
+        // console.log(sql);
+        // ev.returnValue={
+        //     'updated':true
+        // }
+    }
+    ipcMain.on(editBarangService,editBarangListener);
+
     const deleteBarangService=barangService+"-delete"
     deleteBarangListener=(ev,data)=>{
         var sql="DELETE FROM produk WHERE id="+data["id"]
@@ -364,7 +429,7 @@ const init=()=>{
 
     const tambahListBarangService="tambah-list-barang";
     const tambahListBarangListener=(ev,data)=>{
-        var sql=`INSERT INTO produk (nama,harga,kode_barang,gambar,deskripsi) VALUES ('${data.namaProduk}',${data.hargaSatuan},'${data.kodeProduk}','','')`;
+        var sql=`INSERT INTO produk (nama,harga,kode_barang,gambar,deskripsi,harga_beli) VALUES ('${data.namaProduk}',${data.hargaSatuan},'${data.kodeProduk}','','',${data.hargaBeli})`;
         db.run(sql,(err)=>{
             if(err)throw err;
             sql=`SELECT last_insert_rowid() AS inserting;`
@@ -392,7 +457,7 @@ const init=()=>{
     // ===================== PELANGGAN SERVICE ==================================
     const pelangganService="pelanggan";
     const pelangganListener=(ev,data)=>{
-        var sql="SELECT * FROM testing";
+        var sql="SELECT * FROM pelanggan ORDER BY id DESC";
         var res;
         db.all(sql,(err,rows)=>{
             if(err)throw err;
@@ -412,7 +477,19 @@ const init=()=>{
             }
         });
     }
-    ipcMain.on(pelangganService,pelangganListener)
+    ipcMain.on(pelangganService,pelangganListener);
+
+    const tambahPelangganService="tambah-pelanggan";
+    const tambahPelangganListener=(ev,data)=>{
+        var sql=`INSERT INTO pelanggan (nama,alamat,kontak) VALUES ('${data.namaPelanggan}','${data.alamatPelanggan}','${data.kontakPelanggan}')`;
+        db.exec(sql,(err)=>{
+            if(err) throw err;
+            ev.returnValue={
+                "inserted":true
+            }
+        });
+    }
+    ipcMain.on(tambahPelangganService,tambahPelangganListener);
 
     // ===================== PEMBELIAN SERVICE ==================================
     const pembelianService="pembelian";
@@ -456,13 +533,6 @@ const init=()=>{
                 "tanggal":tanggal.length > 7 ? tanggal.slice(0,7) : tanggal,
                 "total_per_hari":totalPenjualanHari.length > 7 ? totalPenjualanHari.slice(0,7) : totalPenjualanHari
             }
-            ev.reply(penjualanService,{
-                "service":penjualanService,
-                "bener":false,
-                "angka":12,
-                "arr":[5,4,2,5,2],
-                "data":data
-            });
             ev.returnValue={
                 "service":penjualanService,
                 "bener":false,

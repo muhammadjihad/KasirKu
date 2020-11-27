@@ -660,7 +660,7 @@
                 
                 ev.preventDefault();
                 // console.log($("#forms-input").children().add("test"))    
-                const appending=`<div class="container text-center row produk">
+                const appending=`<div class="container text-center row produk p-1">
                     <div class="col-sm-3">
                         <div class="dropdown">
                             <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -922,7 +922,7 @@
                     <div class="pr-2 pl-2 flex-fill bd-highlight">
                         <form id="transaksi-form">
                             <div id="forms-input">
-                                <div class="container text-center row produk">
+                                <div class="container text-center row produk p-1">
                                     <div class="col-sm-3">
                                         <div class="dropdown">
                                             <button class="btn btn-outline-primary dropdown-toggle" type="button" id="item-barang-${itemBarang}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -1063,6 +1063,12 @@
             res=''
             loop=""
             for(obj of data.data){
+                if(obj.utang === undefined){
+                    obj.utang=0
+                }
+                if(obj.piutang === undefined){
+                    obj.piutang=0
+                }
                 loop+=`
                     <tr class="text-center">
                         <td scope="row">${obj.id}</td>

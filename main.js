@@ -564,7 +564,13 @@ const init=()=>{
     const penjualanDetailListener=(ev,data)=>{
         var sql="SELECT produk.*,'order'.*,grosir.*,order_id,produk_id,kuantitas,sub_total,nama_produk AS order_nama_produk FROM order_barang AS order_barang LEFT JOIN produk AS produk ON order_barang.produk_id=produk.id LEFT JOIN 'order' ON order_barang.order_id='order'.id LEFT JOIN jenis_grosir AS grosir ON order_barang.grosir_id=grosir.id ORDER BY 'order'.waktu_order DESC"
         db.all(sql,(err,rows)=>{
-            orderBarang=Array();
+            if(rows == undefined){
+                console.log(rows)
+                ev.returnValue={
+                    "data":rows
+                }
+            } else {
+                orderBarang=Array();
             // orderId=0;
             data={};
             var yearState=0;
@@ -657,6 +663,7 @@ const init=()=>{
             ev.returnValue={
                 "selected":true,
                 "data":orderBarang
+            }
             }
         })
     }

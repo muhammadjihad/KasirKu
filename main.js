@@ -7,7 +7,7 @@ const env = process.env.NODE_ENV || 'development';
 const ThermalPrinter=require("node-thermal-printer").printer;
 const PrinterTypes=require("node-thermal-printer").types;
 
-let printer=new ThermalPrinter({
+var printer=new ThermalPrinter({
     type:PrinterTypes.EPSON,
     interface:"\\.\COM1",
     characterSet:"SLOVENIA",
@@ -19,22 +19,22 @@ let printer=new ThermalPrinter({
 });
 
 // If development environment 
-if (env === 'development') { 
-    require('electron-reload')(__dirname, { 
-        electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
-        hardResetMethod: 'exit'
-    }); 
-}
+// if (env === 'development') { 
+//     require('electron-reload')(__dirname, { 
+//         electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
+//         hardResetMethod: 'exit'
+//     }); 
+// }
 
 let db=new sqlite.Database("./test.db");
 
 createWindow=()=>{
-
     const win=new BrowserWindow({
-        height:600,
-        width:1200,
+        // height:1800,
+        // width:2880,
+        fullscreen:true,
         webPreferences:{
-            nodeIntegration:true
+            nodeIntegration:true,
         },
         icon:"./assets/images/cash-register.png"
     });
@@ -69,17 +69,17 @@ const init=()=>{
                         waktu_order:data.waktu_order,
                         total_harga:data.total_harga,
                         barang:[{
-                            nama_barang:data.nama,
+                            nama_barang:data.nama ?? data.nama_produk,
                             nama_jenis:data.nama_jenis ?? "satuan",
-                            kuantitas:data.kuantitas,
+                            kuantitas:data.kuantitas ?? "Pembelian Manual",
                             sub_total:data.sub_total
                         }]
                     }
                 } else {
                     transaksi[data.id].barang.push({
-                        nama_barang:data.nama,
+                        nama_barang:data.nama ?? data.nama_produk,
                         nama_jenis:data.nama_jenis ?? "satuan",
-                        kuantitas:data.kuantitas,
+                        kuantitas:data.kuantitas ?? "Pembelian Manual",
                         sub_total:data.sub_total
                     })
                 }
@@ -88,14 +88,6 @@ const init=()=>{
             for(data in transaksi){
                 belanjaan.unshift(transaksi[data]);
             }
-            console.log(belanjaan)
-            ev.reply(menuUtamaService,{
-                "service":menuUtamaService,
-                "bener":false,
-                "angka":12,
-                "arr":[5,4,2,5,2],
-                "data":belanjaan
-            });
             ev.returnValue={
                 "service":menuUtamaService,
                 "bener":false,
@@ -128,10 +120,10 @@ const init=()=>{
         var sql="SELECT id,nama_jenis FROM jenis_grosir";
         db.all(sql,(err,rows)=>{
             if(err)throw err;
-            rows.unshift({
-                "id":0,
-                "nama_jenis":"satuan"
-            })
+            // rows.unshift({
+            //     "id":0,
+            //     "nama_jenis":"satuan"
+            // })
             ev.returnValue={
                 "data":rows
             }
@@ -189,12 +181,23 @@ const init=()=>{
                     if(barang.grosirId == 0){
                         barang.grosirId=null
                     }
-                    query+=`INSERT INTO order_barang (produk_id,kuantitas,grosir_id,order_id,sub_total) VALUES (${barang.produkId},${barang.kuantitas},${barang.grosirId},${orderId},${barang.subTotal});`
+                    query+=`INSERT INTO order_barang (produk_id,kuantitas,grosir_id,order_id,sub_total,nama_produk) VALUES (${barang.produkId},${barang.kuantitas},${barang.grosirId},${orderId},${barang.subTotal},'${barang.namaProduk}');`
                 }
                 console.log(query);
                 db.exec(query,async function(err){
                     console.log("EXECUTED");
                     if(err)throw err;
+
+                    printer=new ThermalPrinter({
+                        type:PrinterTypes.EPSON,
+                        interface:"\\.\COM1",
+                        characterSet:"SLOVENIA",
+                        removeSpecialCharacters:false,
+                        lineCharacter:"=",
+                        options:{
+                            timeout:10000
+                        }
+                    });
 
                     // PRINTING
                     printer.isPrinterConnected().then((conn)=>{
@@ -295,6 +298,19 @@ const init=()=>{
     }
     ipcMain.on(hapusSupplierService,hapusSupplierListener)
 
+    const editUtangPiutangService="edit-utang-piutang";
+    const editUtangPiutangListener=(ev,data)=>{
+        var sql=`UPDATE supplier SET utang=${data.utang}, piutang=${data.piutang} WHERE id=${data.supplier_id};`
+        console.log(sql);
+        db.exec(sql,(err)=>{
+            if(err)throw err;
+            ev.returnValue={
+                "updated":true
+            }
+        });
+    }
+    ipcMain.on(editUtangPiutangService,editUtangPiutangListener)
+
 
     // ===================== BARANG SERVICE ==================================
     const barangService="barang";
@@ -304,7 +320,7 @@ const init=()=>{
         if(data.search){
             sql+=" WHERE produk.nama LIKE '%"+data.search+"%' "
         }
-        sql+=" ORDER BY produk.id"
+        sql+=" ORDER BY produk.nama "
         var res;
         db.all(sql,(err,rows)=>{
             console.log(rows)
@@ -546,7 +562,7 @@ const init=()=>{
 
     const penjualanDetailService="penjualan-detail";
     const penjualanDetailListener=(ev,data)=>{
-        var sql="SELECT produk.*,'order'.*,grosir.*,order_id,produk_id,kuantitas,sub_total FROM order_barang AS order_barang LEFT JOIN produk AS produk ON order_barang.produk_id=produk.id LEFT JOIN 'order' ON order_barang.order_id='order'.id LEFT JOIN jenis_grosir AS grosir ON order_barang.grosir_id=grosir.id ORDER BY 'order'.waktu_order DESC"
+        var sql="SELECT produk.*,'order'.*,grosir.*,order_id,produk_id,kuantitas,sub_total,nama_produk AS order_nama_produk FROM order_barang AS order_barang LEFT JOIN produk AS produk ON order_barang.produk_id=produk.id LEFT JOIN 'order' ON order_barang.order_id='order'.id LEFT JOIN jenis_grosir AS grosir ON order_barang.grosir_id=grosir.id ORDER BY 'order'.waktu_order DESC"
         db.all(sql,(err,rows)=>{
             orderBarang=Array();
             // orderId=0;
@@ -569,10 +585,10 @@ const init=()=>{
                             "order_id":barang["order_id"],
                             "barang":[
                                 {
-                                    "nama_produk":barang["nama"],
+                                    "nama_produk":barang["nama"] != null ? barang["nama"] : barang["order_nama_produk"],
                                     "produk_id":barang["produk_id"],
-                                    "kuantitas":barang["kuantitas"],
-                                    "jenis_grosir":barang["nama_jenis"],
+                                    "kuantitas":barang["kuantitas"] ?? "Pembelian Manual",
+                                    "jenis_grosir":barang["nama_jenis"] ??  "Pembelian Manual",
                                     "sub_total":barang["sub_total"]
                                 }
                             ],
@@ -588,10 +604,10 @@ const init=()=>{
                         if(barang["order_id"] == orderIdState){
                             var length=data["order"].length;
                             data["order"][length-1]["barang"].push({
-                                "nama_produk":barang["nama"],
+                                "nama_produk":barang["nama"] != null ? barang["nama"] : barang["order_nama_produk"],
                                 "produk_id":barang["produk_id"],
-                                "kuantitas":barang["kuantitas"],
-                                "jenis_grosir":barang["nama_jenis"],
+                                "kuantitas":barang["kuantitas"] ?? "Pembelian Manual",
+                                "jenis_grosir":barang["nama_jenis"] ??  "Pembelian Manual",
                                 "sub_total":barang["sub_total"]
                             })
 
@@ -601,10 +617,10 @@ const init=()=>{
                                 "total_harga":barang["total_harga"],
                                 "order_id":barang["order_id"],
                                 "barang":[{
-                                    "nama_produk":barang["nama"],
+                                    "nama_produk":barang["nama"] != null ? barang["nama"] : barang["order_nama_produk"],
                                     "produk_id":barang["produk_id"],
-                                    "kuantitas":barang["kuantitas"],
-                                    "jenis_grosir":barang["nama_jenis"],
+                                    "kuantitas":barang["kuantitas"] ?? "Pembelian Manual",
+                                    "jenis_grosir":barang["nama_jenis"] ??  "Pembelian Manual",
                                     "sub_total":barang["sub_total"]
                                 }]
                             })
@@ -618,10 +634,10 @@ const init=()=>{
                                 "order_id":barang["order_id"],
                                 "barang":[
                                     {
-                                        "nama_produk":barang["nama"],
+                                        "nama_produk":barang["nama"] != null ? barang["nama"] : barang["order_nama_produk"],
                                         "produk_id":barang["produk_id"],
-                                        "kuantitas":barang["kuantitas"],
-                                        "jenis_grosir":barang["nama_jenis"],
+                                        "kuantitas":barang["kuantitas"] ?? "Pembelian Manual",
+                                        "jenis_grosir":barang["nama_jenis"] ??  "Pembelian Manual",
                                         "sub_total":barang["sub_total"]
                                     }
                                 ],

@@ -224,9 +224,12 @@
                     "kontakSupplier":kontakSupplier
                 }
                 ipcRenderer.sendSync("buat-supplier",data);
-                contentRender=renderContent("supplier");
-                window.location.reload();
-                // $("#tambah-supplier").modal("hide");
+                // contentRender=renderContent("supplier");
+                // window.location.reload();
+                
+                $('.modal-backdrop').remove();
+                $("#tambah-supplier").modal("hide");
+                renderContent("supplier")
             })
 
             $("#cari-supplier-submit").click(ev=>{
@@ -299,11 +302,24 @@
                 const totalProduk=$(".produk");
                 totalProduk.each((i,produk)=>{
                     totalHarga+=parseInt(produk.getAttribute("sub-total"));
-                    var dataBelanja={
-                        produkId:produk.children[0].getAttribute("nilai"),
-                        grosirId:produk.children[1].getAttribute("nilai"),
-                        kuantitas:produk.children[2].getAttribute("nilai"),
-                        subTotal:produk.getAttribute("sub-total")
+                    var produkId=produk.children[0].getAttribute("nilai");
+                    var dataBelanja;
+                    if(produkId == 0){
+                        dataBelanja={
+                            produkId:null,
+                            grosirId:null,
+                            kuantitas:null,
+                            subTotal:produk.getAttribute("sub-total"),
+                            namaProduk:produk.children[0].getAttribute("nilai_opt")
+                        }
+                    } else {
+                        dataBelanja={
+                            produkId:produk.children[0].getAttribute("nilai"),
+                            grosirId:produk.children[1].getAttribute("nilai"),
+                            kuantitas:produk.children[2].getAttribute("nilai"),
+                            subTotal:produk.getAttribute("sub-total"),
+                            namaProduk:null
+                        }
                     }
                     belanja.push(dataBelanja);
                 });
@@ -353,6 +369,12 @@
             //     });
             // });
 
+            $(".tutup-history-produk-modal").click(ev=>{
+                const targetParent=ev.target.parentElement.parentElement.parentElement.parentElement;
+                $("#"+targetParent.getAttribute("id")).modal("hide")
+                // console.log(targetParent)
+            })
+
             $(".tambah-edit-harga-grosir").click(ev=>{
                 ev.preventDefault();
                 var grosirElement=renderTambahHargaGrosir()
@@ -396,7 +418,9 @@
                 console.log(data);
                 var resp=ipcRenderer.sendSync("tambah-list-barang",data);
                 if(resp.inserted){
-                    window.location.reload();
+                    $('.modal-backdrop').remove();
+                    $("#tambah-list-produk").modal("hide");
+                    renderContent("barang");
                 }
             });
 
@@ -413,6 +437,7 @@
                     for(barang of semuaBarang.data){
                         opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
                     }
+                    
                     var nextNode=ev.target.nextElementSibling;
                     var twoNext=nextNode != undefined ? ev.target.nextElementSibling.nextElementSibling : null;
                     while(nextNode!=null){
@@ -427,7 +452,6 @@
                     for(barang of semuaBarang.data){
                         opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
                     }
-                    
                     $(".dropdown-menu button.dropdown-item").click(ev=>{
                         ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
                         ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
@@ -465,8 +489,8 @@
             });
             }
             cariSemuaBarang();  
-            $(".cari-semua-barang").keypress(ev=>{
-                cariSemuaBarang()
+            // $(".cari-semua-barang").keypress(ev=>{
+            //     cariSemuaBarang()
                 // ev.preventDefault();
                 // var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
                 // if(keyCode == "13"){
@@ -527,9 +551,37 @@
                 // } else {
                 //     ev.target.value+=String.fromCharCode(ev.which);
                 // }
-            });
+            // });
+
+            $(".edit-utang-piutang").click(ev=>{
+                ev.preventDefault();
+                const utang=ev.target.parentElement.children[0].children[1].value
+                const piutang=ev.target.parentElement.children[1].children[1].value
+                const supplier_id=ev.target.getAttribute("id_value")
+                data={
+                    "supplier_id":supplier_id,
+                    "utang":utang,
+                    "piutang":piutang
+                }
+                console.log(data)
+                var editUtang=ipcRenderer.sendSync("edit-utang-piutang",data)
+                if(editUtang.updated){
+                    $('.modal-backdrop').remove();
+                    $("#edit-utang-piutang-"+supplier_id).modal("hide");
+                    renderContent("supplier")
+                }
+            })
 
             $('#tambah-list-produk').on('hidden.bs.modal', function (e) {
+                $(this)
+                    .find("input,textarea,select")
+                    .val('')
+                    .end()
+                    .find("input[type=checkbox], input[type=radio]")
+                    .prop("checked", "")
+                    .end();
+            });
+            $('#submit-tambah-list-produk').on('hidden.bs.modal', function (e) {
                 $(this)
                     .find("input,textarea,select")
                     .val('')
@@ -547,10 +599,67 @@
                 // var resp=ipcRenderer.sendSync("edit-barang",data);
                 // console.log(resp);
             });
+
+            $("#tambah-produk-manual").click(ev=>{
+                const appending=`<div class="container text-center row produk">
+                    <div class="col-sm-6" nilai=0>
+                        <div>
+                            <div>
+                                <input type="text" class="form-control nama-produk" id="nama-supplier" aria-describedby="emailHelp" placeholder="Nama Produk ..">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-3">
+                        <div>
+                            <div>
+                                <input type="number" class="form-control sub-harga" id="nama-supplier" aria-describedby="emailHelp" placeholder="Sub Harga">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-2">
+                        <small></small>
+                    </div>
+                    <div class="col-sm-1">
+                        <div>
+                            <div>
+                                <small class="delete-list-produk" style="color:red;">X</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>`
+                $("#forms-input").append(appending);
+                $(".nama-produk").keyup(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.setAttribute("nilai_opt",ev.target.value);
+                })
+                $(".sub-harga").keyup(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                    // console.log(produkId)
+                    getHarga(ev,0,0,ev.target.value);
+                    // console.log(produkId)
+                });
+
+                $(".delete-list-produk").click(ev=>{
+                    ev.target.parentElement.parentElement.parentElement.parentElement.remove();
+                    setTotalHarga();
+                });
+
+                // $("input.kuantitas").keyup(ev=>{
+                //     // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+                //     ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+                //     const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+                //     const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+                //     // console.log(produkId)
+                //     getHarga(ev,produkId,grosirId,ev.target.value);
+                // });
+
+
+                // cariSemuaBarang();
+            });
+
             $("#tambah-produk").click(ev=>{
                 
                 ev.preventDefault();
-                // console.log($("#forms-input").children().add("test"))
+                // console.log($("#forms-input").children().add("test"))    
                 const appending=`<div class="container text-center row produk">
                     <div class="col-sm-3">
                         <div class="dropdown">
@@ -591,7 +700,6 @@
                                         </div>
                                     </div>
                 </div>`
-                console.log(appending);
                 $("#forms-input").append(appending);
                 // renderUlang(content)
                 $(".dropdown-menu button.dropdown-item").click(ev=>{
@@ -632,75 +740,75 @@
                 });
 
 
-
-                $(".cari-semua-barang").keypress(ev=>{
-                    cariSemuaBarang();  
-                });
+                cariSemuaBarang();
+                // $(".cari-semua-barang").keypress(ev=>{
+                //     // cariSemuaBarang();  
+                // });
 
             })
 
         }
 
-        $(".cari-semua-barang").keypress(ev=>{
-                    var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
-                    if(keyCode == "13"){
-                        params={
-                            "search":ev.target.value
-                        }
-                        ev.preventDefault();
-                        var semuaBarang=ipcRenderer.sendSync("semua-barang",params);
-                        opsi=""
-                        for(barang of semuaBarang.data){
-                            opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
-                        }
-                        var nextNode=ev.target.nextElementSibling;
-                        var twoNext=nextNode != undefined ? ev.target.nextElementSibling.nextElementSibling : null;
-                        while(nextNode!=null){
-                            nextNode.remove();
-                            nextNode=twoNext;
-                            twoNext=twoNext == null ? null : twoNext.nextElementSibling;
-                        }
-                        console.log(ev.target.parentElement);
-                        ev.target.parentElement.innerHTML+=opsi;
-                        semuaBarang=ipcRenderer.sendSync("semua-barang");
-                        opsi=""
-                        for(barang of semuaBarang.data){
-                            opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
-                        }
-                        $(".dropdown-menu button.dropdown-item").click(ev=>{
-                            ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
-                            ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
-                            console.log(ev.target.parentElement.parentElement.parentElement);
-                            const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
-                            const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
-                            const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
-                                // console.log(produkId)
-                            getHarga(ev,produkId,grosirId,kuantitas);
-                            $(".dropdown-menu button.dropdown-item").click(ev=>{
-                                ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
-                                ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
-                                console.log(ev.target.parentElement.parentElement.parentElement);
-                                const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
-                                const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
-                                const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
-                                    // console.log(produkId)
-                                getHarga(ev,produkId,grosirId,kuantitas);
-                                // console.log(produkId)
-                            });
-                            // console.log(produkId)
-                        });
+        // $(".cari-semua-barang").keypress(ev=>{
+        //             var keyCode=(ev.keyCode ? ev.keyCode:ev.which);
+        //             if(keyCode == "13"){
+        //                 params={
+        //                     "search":ev.target.value
+        //                 }
+        //                 ev.preventDefault();
+        //                 var semuaBarang=ipcRenderer.sendSync("semua-barang",params);
+        //                 opsi=""
+        //                 for(barang of semuaBarang.data){
+        //                     opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+        //                 }
+        //                 var nextNode=ev.target.nextElementSibling;
+        //                 var twoNext=nextNode != undefined ? ev.target.nextElementSibling.nextElementSibling : null;
+        //                 while(nextNode!=null){
+        //                     nextNode.remove();
+        //                     nextNode=twoNext;
+        //                     twoNext=twoNext == null ? null : twoNext.nextElementSibling;
+        //                 }
+        //                 console.log(ev.target.parentElement);
+        //                 ev.target.parentElement.innerHTML+=opsi;
+        //                 semuaBarang=ipcRenderer.sendSync("semua-barang");
+        //                 opsi=""
+        //                 for(barang of semuaBarang.data){
+        //                     opsi+=`<button class="dropdown-item" type="button" idbarang="${barang.id}" id="barang-${barang.id}">${barang.nama}</button>`
+        //                 }
+        //                 $(".dropdown-menu button.dropdown-item").click(ev=>{
+        //                     ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+        //                     ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+        //                     console.log(ev.target.parentElement.parentElement.parentElement);
+        //                     const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+        //                     const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+        //                     const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+        //                         // console.log(produkId)
+        //                     getHarga(ev,produkId,grosirId,kuantitas);
+        //                     $(".dropdown-menu button.dropdown-item").click(ev=>{
+        //                         ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.getAttribute("idbarang"));
+        //                         ev.target.parentElement.parentElement.children[0].innerHTML=ev.target.innerHTML;
+        //                         console.log(ev.target.parentElement.parentElement.parentElement);
+        //                         const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+        //                         const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+        //                         const kuantitas=ev.target.parentElement.parentElement.parentElement.parentElement.children[2].getAttribute("nilai");
+        //                             // console.log(produkId)
+        //                         getHarga(ev,produkId,grosirId,kuantitas);
+        //                         // console.log(produkId)
+        //                     });
+        //                     // console.log(produkId)
+        //                 });
 
-                        $("input.kuantitas").keyup(ev=>{
-                            // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
-                            ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
-                            const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
-                            const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
-                            // console.log(produkId)
-                            getHarga(ev,produkId,grosirId,ev.target.value);
-                        });
+        //                 $("input.kuantitas").keyup(ev=>{
+        //                     // console.log(ev.target.parentElement.parentElement.parentElement.parentElement);
+        //                     ev.target.parentElement.parentElement.parentElement.setAttribute("nilai",ev.target.value);
+        //                     const produkId=ev.target.parentElement.parentElement.parentElement.parentElement.children[0].getAttribute("nilai");
+        //                     const grosirId=ev.target.parentElement.parentElement.parentElement.parentElement.children[1].getAttribute("nilai");
+        //                     // console.log(produkId)
+        //                     getHarga(ev,produkId,grosirId,ev.target.value);
+        //                 });
                         
-                    }
-                });
+        //             }
+        //         });
 
         function setTotalHarga(){
             var totalHarga=0;
@@ -721,12 +829,19 @@
                 kuantitas:kuantitas
             }
             console.log(data);
-            var resp=ipcRenderer.sendSync("get-harga",data);
-            if(resp.data.length>0){
-                const harga=(resp.data[0].harga*kuantitas).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-                node.target.parentElement.parentElement.parentElement.parentElement.setAttribute("sub-total",resp.data[0].harga*kuantitas)
-                node.target.parentElement.parentElement.parentElement.parentElement.children[3].innerHTML=`<small class="text-bold">Rp, ${harga}</small>`;
+            if(produkId == 0){
+                const harga=node.target.value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                node.target.parentElement.parentElement.parentElement.parentElement.setAttribute("sub-total",node.target.value)
+                node.target.parentElement.parentElement.parentElement.parentElement.children[2].innerHTML=`<small class="text-bold">Rp, ${harga}</small>`;
                 setTotalHarga();
+            }else{
+                var resp=ipcRenderer.sendSync("get-harga",data);
+                if(resp.data.length>0){
+                    const harga=(resp.data[0].harga*kuantitas).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                    node.target.parentElement.parentElement.parentElement.parentElement.setAttribute("sub-total",resp.data[0].harga*kuantitas)
+                    node.target.parentElement.parentElement.parentElement.parentElement.children[3].innerHTML=`<small class="text-bold">Rp, ${harga}</small>`;
+                    setTotalHarga();
+                }
             }
             // console.log(node.target);
         }
@@ -794,7 +909,6 @@
                 for(grosir of semuaGrosirs.data){
                     semuaGrosir+=`<button class="dropdown-item" type="button" idbarang="${grosir.id}" id="grosir-${grosir.id}">${grosir.nama_jenis}</button>`
                 }
-                console.log(semuaGrosir)
                 res=`
                 <div class="d-flex bd-highlight">
                     <div class="bd-highlight">
@@ -850,7 +964,8 @@
                                 </div>
                             </div>
                             <div class="container m-5 text-center">
-                                <div id="tambah-produk" class="btn btn-primary">Tambah Produk</div>
+                                <div id="tambah-produk" class="btn btn-primary">Tambah Produk dari Data Barang</div>
+                                <div id="tambah-produk-manual" class="btn btn-secondary">Tambah Produk Manual</div>
                             </div>
                             <hr/>
                             <div class="container row">
@@ -876,6 +991,7 @@
                         </div>
                         `
                     }
+                    console.log(obj)
                     loop+=`
                         <tr>
                             <td scope="row">${obj.id}</td>
@@ -948,11 +1064,44 @@
             loop=""
             for(obj of data.data){
                 loop+=`
-                    <tr>
+                    <tr class="text-center">
                         <td scope="row">${obj.id}</td>
                         <td>${obj.nama}</td>
                         <td>${obj.alamat}</td>
                         <td>${obj.kontak}</td>
+                        <td class="bg-danger text-white text-center">Rp ${obj.utang.toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,")}</td>
+                        <td class="bg-success text-white text-center">Rp ${obj.piutang.toString().replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1,")}</td>
+                        <td>
+                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#edit-utang-piutang-${obj.id}">Edit</button>
+                            <div class="modal fade" id="edit-utang-piutang-${obj.id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">Tambah Data Supplier</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form>
+                                        <div class="form-group">
+                                            <h5>Utang : </h5>
+                                            <input type="text" class="form-control" value="${obj.utang}" id="nama-supplier" aria-describedby="emailHelp" placeholder="Nama supplier">
+                                        </div>
+                                        <div class="form-group">
+                                            <h5>Piutang : </h5>
+                                            <input type="text" class="form-control" value="${obj.piutang}" id="alamat-supplier" aria-describedby="emailHelp" placeholder="Alamat supplier">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary edit-utang-piutang" id_value=${obj.id}>Edit</button>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+                        </td>
                         <td>
                             <button type="button" class="btn btn-danger" id="supplier-${obj.id}" onclick="hapusSupplier(${obj.id})">Hapus</button>
                         </td>
@@ -966,6 +1115,9 @@
                         <th scope="col">Nama Supplier</th>
                         <th scope="col">Alamat</th>
                         <th scope="col">Kontak</th>
+                        <th scope="col">Utang</th>
+                        <th scope="col">Piutang</th>
+                        <th scope="col">Edit Utang/Piutang</th>
                         <th scope="col">Hapus</th>
                     </tr>
                 </thead>
@@ -1472,8 +1624,8 @@
                         <td>${order.order_id}</td>
                         <td>${totalHarga}</td>
                         <td>
-                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#history-produk-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}">Detail</button>
-                            <div class="modal fade" id="history-produk-${penjualan.order_tahun}-${penjualan.order_bulan}-${penjualan.order_tanggal}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#history-produk-${order.order_id}">Detail</button>
+                            <div class="modal fade" id="history-produk-${order.order_id}" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
                             <div class="modal-dialog" role="document">
                                 <div class="modal-content">
                                 <div class="modal-header">
@@ -1487,7 +1639,7 @@
                                 </div>
                                 <div class="modal-footer">
                                     <h5 class="modal-title" id="exampleModalLabel">Total Harga : ${totalHarga}</h5>
-                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                    <button type="button" class="btn btn-secondary tutup-history-produk-modal">Tutup</button>
                                 </div>
                                 </div>
                             </div>

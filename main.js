@@ -19,20 +19,20 @@ var printer=new ThermalPrinter({
 });
 
 // If development environment 
-// if (env === 'development') { 
-//     require('electron-reload')(__dirname, { 
-//         electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
-//         hardResetMethod: 'exit'
-//     }); 
-// }
+if (env === 'development') { 
+    require('electron-reload')(__dirname, { 
+        electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
+        hardResetMethod: 'exit'
+    }); 
+}
 
 let db=new sqlite.Database("./test.db");
 
 createWindow=()=>{
     const win=new BrowserWindow({
-        // height:1800,
-        // width:2880,
-        fullscreen:true,
+        height:1800,
+        width:2880,
+        // fullscreen:true,
         webPreferences:{
             nodeIntegration:true,
         },
@@ -468,7 +468,19 @@ const init=()=>{
             })
         })
     }
-    ipcMain.on(tambahListBarangService,tambahListBarangListener)
+    ipcMain.on(tambahListBarangService,tambahListBarangListener);
+
+    const tambahKategoriGrosirService="tambah-kategori-grosir";
+    const tambahKategoriGrosirListener=(ev,data)=>{
+        var sql=`INSERT INTO jenis_grosir (nama_jenis) VALUES ('${data.nama_jenis}')`;
+        db.exec(sql,(err)=>{
+            if(err)throw err;
+            ev.returnValue={
+                "inserted":true
+            }
+        })
+    }
+    ipcMain.on(tambahKategoriGrosirService,tambahKategoriGrosirListener);
 
     // ===================== PELANGGAN SERVICE ==================================
     const pelangganService="pelanggan";

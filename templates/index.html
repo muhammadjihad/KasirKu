@@ -111,6 +111,18 @@
 
         function renderUlang(content){
 
+            $("#tambah-kategori-grosir-submit").click(ev=>{
+                const value=$("#tambah-kategori-grosir-value").val();
+                var resp=ipcRenderer.sendSync("tambah-kategori-grosir",{
+                    "nama_jenis":value
+                });
+                if(resp.inserted){
+                    $('.modal-backdrop').remove();
+                    $("#tambah-supplier").modal("hide");
+                    renderContent("barang")
+                }
+            })
+
             $(".submit-edit-barang").click(ev=>{
                 const grosirElements=ev.target.parentElement.parentElement.children[1].children[0].children[0].children[4].children;
                 // console.log(grosirElements);
@@ -601,11 +613,11 @@
             });
 
             $("#tambah-produk-manual").click(ev=>{
-                const appending=`<div class="container text-center row produk">
+                const appending=`<div class="container text-center row produk p-1">
                     <div class="col-sm-6" nilai=0>
                         <div>
                             <div>
-                                <input type="text" class="form-control nama-produk" id="nama-supplier" aria-describedby="emailHelp" placeholder="Nama Produk ..">
+                                <input type="text" class="form-control nama-produk" id="nama-supplier" aria-describedby="emailHelp" placeholder="Nama Produk dan jumlahnya (cth: plastik 2 pack)">
                             </div>
                         </div>
                     </div>
@@ -662,11 +674,11 @@
                 // console.log($("#forms-input").children().add("test"))    
                 const appending=`<div class="container text-center row produk p-1">
                     <div class="col-sm-3">
-                        <div class="dropdown">
-                            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-outline-primary dropdown-toggle d-inline-block" type="button" id="dropdownMenu2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 Produk
                             </button>
-                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                            <div class="dropdown-menu" style="max-height:50vh;overflow:scroll;" aria-labelledby="dropdownMenu2">
                                 <input type="text" class="form-control cari cari-semua-barang" aria-describedby="emailHelp" placeholder="Cari Barang ..">
                                 ${opsi}
                             </div>
@@ -928,7 +940,7 @@
                                             <button class="btn btn-outline-primary dropdown-toggle" type="button" id="item-barang-${itemBarang}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                                 Produk
                                             </button>
-                                            <div class="dropdown-menu" aria-labelledby="dropdownMenu2">
+                                            <div class="dropdown-menu" style="max-height:50vh;overflow:scroll;" aria-labelledby="dropdownMenu2">
                                                 <input type="text" class="form-control cari-semua-barang" aria-describedby="cari-barang" placeholder="Cari Barang ..">
                                                 ${opsi}
                                             </div>
@@ -1439,6 +1451,35 @@
                             </div>
                             </div>
                 </div>
+
+                <div class="container text-center mb-2">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#tambah-kategori-grosir" data-whatever="data">Tambah Kategori Grosir</button>
+                            <div class="modal fade" id="tambah-kategori-grosir" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="exampleModalLabel">Tambahkan Kategori Grosir</h5>
+                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <form>
+                                        <div id="form-tambah-list-barang">
+                                            <div class="form-group">
+                                                <input type="text" class="form-control" id="tambah-kategori-grosir-value" aria-describedby="emailHelp" placeholder="Nama Jenis Grosir">
+                                            </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="submit" class="btn btn-success" id="tambah-kategori-grosir-submit">Tambah Kategori Grosir</button>
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+                </div>
+            
             <table class="table">
                 <thead>
                     <tr>

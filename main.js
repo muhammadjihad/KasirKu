@@ -7,6 +7,8 @@ const env = process.env.NODE_ENV || 'development';
 const ThermalPrinter=require("node-thermal-printer").printer;
 const PrinterTypes=require("node-thermal-printer").types;
 
+const {PosPrinter}=require("electron-pos-printer");
+
 var printer=new ThermalPrinter({
     type:PrinterTypes.EPSON,
     interface:"\\.\COM1",
@@ -19,27 +21,30 @@ var printer=new ThermalPrinter({
 });
 
 // If development environment 
-if (env === 'development') { 
-    require('electron-reload')(__dirname, { 
-        electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
-        hardResetMethod: 'exit'
-    }); 
-}
+// if (env === 'development') { 
+//     require('electron-reload')(__dirname, { 
+//         electron: path.join(__dirname, 'node_modules', '.bin', 'electron'), 
+//         hardResetMethod: 'exit'
+//     }); 
+// }
 
 let db=new sqlite.Database("./test.db");
 
 createWindow=()=>{
     const win=new BrowserWindow({
-        height:1800,
-        width:2880,
-        // fullscreen:true,
+        // height:1800,
+        // width:2880,
+        fullscreen:true,
         webPreferences:{
             nodeIntegration:true,
         },
         icon:"./assets/images/cash-register.png"
     });
-    win.webContents.openDevTools();
+    // win.webContents.openDevTools();
+    win.webContents.getPrinters();
     win.loadFile("templates/index.html");
+
+    return win;
 
 }
 
@@ -47,7 +52,7 @@ createWindow=()=>{
 
 const init=()=>{
 
-    createWindow();
+    win=createWindow();
     
     const CHANNEL_NAME=["menu-utama","supplier","barang","pelanggan","pembelian","penjualan"];
 
@@ -57,10 +62,8 @@ const init=()=>{
         var sql=`SELECT *,ord.id AS id,GROUP_CONCAT(produk.id,',') AS produk_ids FROM 'order' AS ord LEFT JOIN order_barang AS ord_bar ON ord_bar.order_id=ord.id LEFT JOIN jenis_grosir AS grosir ON grosir.id=ord_bar.grosir_id LEFT JOIN produk AS produk ON produk.id=ord_bar.produk_id GROUP BY ord_bar.id ORDER BY ord.id DESC
         `;
         var res;
-        console.log(sql);
         db.all(sql,(err,rows)=>{
             if(err)throw err;
-            console.log(rows);
             transaksi=Object();
             for(data of rows){
                 if(transaksi[data.id] == undefined){
@@ -188,52 +191,133 @@ const init=()=>{
                     console.log("EXECUTED");
                     if(err)throw err;
 
-                    printer=new ThermalPrinter({
-                        type:PrinterTypes.EPSON,
-                        interface:"\\.\COM1",
-                        characterSet:"SLOVENIA",
-                        removeSpecialCharacters:false,
-                        lineCharacter:"=",
-                        options:{
-                            timeout:10000
-                        }
-                    });
+                    // printer=new ThermalPrinter({
+                    //     type:PrinterTypes.EPSON,
+                    //     interface:"\\.\COM1",
+                    //     characterSet:"SLOVENIA",
+                    //     removeSpecialCharacters:false,
+                    //     lineCharacter:"=",
+                    //     options:{
+                    //         timeout:10000
+                    //     }
+                    // });
 
                     // PRINTING
-                    printer.isPrinterConnected().then((conn)=>{
-                        if(conn){
-                            printer.println("Toko Az-Zahra")
-                            printer.println("Jalan Raya Semangen")
-                            printer.println("Depan SD Wanajaya")
-                            printer.println("0822-1464-5888")
-                            printer.println("==================")
-                            printer.println("STRUK BELANJA")
-                            printer.println(Date.now().toString())
-                            printer.println("DAFTAR BELANJAAN")
-                            for(barang of data.belanja){
-                                printer.println(`${barang.produkId} ${barang.kuantitas}x${barang.grosirId} - Rp${barang.subTotal}`)
-                            }
-                            printer.println("TOTAL HARGA : "+data.total_harga)
-                            printer.println("==================")
-                            printer.println("Barang yang sudah dibeli")
-                            printer.println("Tidak dapat ditukar kembali")
-                            printer.println("Terimakasih")
-                            printer.execute().then((val)=>{
-                                ev.returnValue={
-                                    "inserted":true,
-                                    "printed":true
-                                }
-                            }).catch((err)=>{
-                                throw err;
+                    sql=`SELECT produk.nama,grosir.nama_jenis,ord_bar.sub_total,ord_bar.kuantitas,ord_bar.nama_produk FROM order_barang AS ord_bar LEFT JOIN produk AS produk ON ord_bar.produk_id=produk.id LEFT JOIN jenis_grosir AS grosir ON ord_bar.grosir_id=grosir.id WHERE ord_bar.order_id=${orderId}`;
+                    db.all(sql,(err,rows)=>{
+                        const printData=[
+                            {
+                                type:"text",
+                                value:"Toko Az-Zahra",
+                                style:"text-align:center;"
+                            },
+                            {
+                                type:"text",
+                                value:"Jalan Raya Semangen",
+                                style:"text-align:center;"
+                            },
+                            {
+                                type:"text",
+                                value:"Depan SD Wanajaya",
+                                style:"text-align:center;"
+                            },
+                            {
+                                type:"text",
+                                value:"0822-1464-5888",
+                                style:"text-align:center;"
+                            },
+                            {
+                                type:"text",
+                                value:"=========",
+                                style:"text-align:center;"
+                            },
+                            
+                        ]
+                        for(barang of rows){
+                            console.log(barang)
+                            printData.push({
+                                type:"text",
+                                value:`${barang.nama == null ? barang.nama_produk : barang.nama} ${barang.kuantitas == null ? "":barang.kuantitas}x${barang.nama_jenis == null ? "":barang.nama_jenis} - Rp${barang.sub_total}`,
                             })
-                        } else {
-                            console.log("NOT PRINTED")
+                        }
+                        printData.push({
+                            type:"text",
+                            value:"Total Harga : Rp "+data.total_harga,
+                            style:"text-align:center;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"=========",
+                            style:"text-align:center;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"Barang yang sudah dibeli",
+                            style:"text-align:center;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"Tidak dapat ditukar kembali",
+                            style:"text-align:center;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"Terimakasih",
+                            style:"text-align:center;"
+                        })
+                        // printer.isPrinterConnected().then((conn)=>{
+                        //     if(conn){
+                        //         printer.println("Toko Az-Zahra")
+                        //         printer.println("Jalan Raya Semangen")
+                        //         printer.println("Depan SD Wanajaya")
+                        //         printer.println("0822-1464-5888")
+                        //         printer.println("==================")
+                        //         printer.println("STRUK BELANJA")
+                        //         printer.println(Date.now().toString())
+                        //         printer.println("DAFTAR BELANJAAN")
+                        //         for(barang of data.belanja){
+                        //             printer.println(`${barang.produkId} ${barang.kuantitas}x${barang.grosirId} - Rp${barang.subTotal}`)
+                        //         }
+                        //         printer.println("TOTAL HARGA : "+data.total_harga)
+                        //         printer.println("==================")
+                        //         printer.println("Barang yang sudah dibeli")
+                        //         printer.println("Tidak dapat ditukar kembali")
+                        //         printer.println("Terimakasih")
+                        //         printer.execute().then((val)=>{
+                        //             ev.returnValue={
+                        //                 "inserted":true,
+                        //                 "printed":true
+                        //             }
+                        //         }).catch((err)=>{
+                        //             throw err;
+                        //         })
+                        //     } else {
+                        //         console.log(conn)
+                        //         console.log("NOT PRINTED")
+                        //         ev.returnValue={
+                        //             "inserted":true,
+                        //             "printed":false
+                        //         }
+                        //     }
+                        // });
+                        PosPrinter.print(printData,{
+                            printerName:"TM-U220D-776",
+                            preview:false,
+                            // width:"170px",
+                            margin:'0 0 0 0',
+                            copies:1,
+                            silent:true
+                        }).then(()=>{
                             ev.returnValue={
-                                "inserted":true,
+                                "printed":true
+                            }
+                        }).catch((err)=>{
+                            console.log(err);
+                            ev.returnValue={
                                 "printed":false
                             }
-                        }
-                    });
+                        })
+                    })
                 })
             })
         })

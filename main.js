@@ -53,13 +53,14 @@ createWindow=()=>{
 const init=()=>{
 
     win=createWindow();
+    process.setMaxListeners(0);
     
     const CHANNEL_NAME=["menu-utama","supplier","barang","pelanggan","pembelian","penjualan"];
 
     // ===================== MENU UTAMA SERVICE ==================================
     const menuUtamaService="menu-utama";
     const menuUtamaListener=async(ev,data)=>{
-        var sql=`SELECT *,ord.id AS id,GROUP_CONCAT(produk.id,',') AS produk_ids FROM 'order' AS ord LEFT JOIN order_barang AS ord_bar ON ord_bar.order_id=ord.id LEFT JOIN jenis_grosir AS grosir ON grosir.id=ord_bar.grosir_id LEFT JOIN produk AS produk ON produk.id=ord_bar.produk_id GROUP BY ord_bar.id ORDER BY ord.id DESC
+        var sql=`SELECT *,ord.id AS id,GROUP_CONCAT(produk.id,',') AS produk_ids,datetime(ord.waktu_order,'localtime') AS waktu_order_local FROM 'order' AS ord LEFT JOIN order_barang AS ord_bar ON ord_bar.order_id=ord.id LEFT JOIN jenis_grosir AS grosir ON grosir.id=ord_bar.grosir_id LEFT JOIN produk AS produk ON produk.id=ord_bar.produk_id GROUP BY ord_bar.id ORDER BY ord.id DESC
         `;
         var res;
         db.all(sql,(err,rows)=>{
@@ -69,7 +70,7 @@ const init=()=>{
                 if(transaksi[data.id] == undefined){
                     transaksi[data.id]={
                         id:data.id,
-                        waktu_order:data.waktu_order,
+                        waktu_order:data.waktu_order_local,
                         total_harga:data.total_harga,
                         barang:[{
                             nama_barang:data.nama ?? data.nama_produk,
@@ -208,22 +209,17 @@ const init=()=>{
                         const printData=[
                             {
                                 type:"text",
-                                value:"Toko Az-Zahra",
+                                value:"Toko Al-Zahra",
                                 style:"text-align:center;"
                             },
                             {
                                 type:"text",
-                                value:"Jalan Raya Semangen",
+                                value:"Jalan Raya Samangga",
                                 style:"text-align:center;"
                             },
                             {
                                 type:"text",
-                                value:"Depan SD Wanajaya",
-                                style:"text-align:center;"
-                            },
-                            {
-                                type:"text",
-                                value:"0822-1464-5888",
+                                value:"082214645888",
                                 style:"text-align:center;"
                             },
                             {
@@ -300,23 +296,28 @@ const init=()=>{
                         //         }
                         //     }
                         // });
+                        ev.returnValue={
+                            "inserted":true
+                        }
                         PosPrinter.print(printData,{
                             printerName:"TM-U220D-776",
                             preview:false,
-                            // width:"170px",
+                            width:"245.67px",
                             margin:'0 0 0 0',
                             copies:1,
                             silent:true
                         }).then(()=>{
+                            console.log("Printed");     
                             ev.returnValue={
-                                "printed":true
+                                "inserted":true
                             }
+                            
                         }).catch((err)=>{
-                            console.log(err);
+                            console.log("Not Printed");
                             ev.returnValue={
-                                "printed":false
+                                "inserted":false
                             }
-                        })
+                        });
                     })
                 })
             })
@@ -529,7 +530,7 @@ const init=()=>{
 
     const tambahListBarangService="tambah-list-barang";
     const tambahListBarangListener=(ev,data)=>{
-        var sql=`INSERT INTO produk (nama,harga,kode_barang,gambar,deskripsi,harga_beli) VALUES ('${data.namaProduk}',${data.hargaSatuan},'${data.kodeProduk}','','',${data.hargaBeli})`;
+        var sql=`INSERT INTO produk (nama,harga,kode_barang,gambar,deskripsi,harga_beli) VALUES ('${data.namaProduk}',${data.hargaSatuan},'${data.kodeProduk}','','',${data.hargaBeli == 0 || data.hargaBeli == null || data.hargaBeli == undefined ? 0 : data.hargaBeli})`;
         db.run(sql,(err)=>{
             if(err)throw err;
             sql=`SELECT last_insert_rowid() AS inserting;`

@@ -40,7 +40,7 @@ createWindow=()=>{
         },
         icon:"./assets/images/cash-register.png"
     });
-    // win.webContents.openDevTools();
+    win.webContents.openDevTools();
     win.webContents.getPrinters();
     win.loadFile("templates/index.html");
 
@@ -187,9 +187,7 @@ const init=()=>{
                     }
                     query+=`INSERT INTO order_barang (produk_id,kuantitas,grosir_id,order_id,sub_total,nama_produk) VALUES (${barang.produkId},${barang.kuantitas},${barang.grosirId},${orderId},${barang.subTotal},'${barang.namaProduk}');`
                 }
-                console.log(query);
                 db.exec(query,async function(err){
-                    console.log("EXECUTED");
                     if(err)throw err;
 
                     // printer=new ThermalPrinter({
@@ -205,16 +203,18 @@ const init=()=>{
 
                     // PRINTING
                     sql=`SELECT produk.nama,grosir.nama_jenis,ord_bar.sub_total,ord_bar.kuantitas,ord_bar.nama_produk FROM order_barang AS ord_bar LEFT JOIN produk AS produk ON ord_bar.produk_id=produk.id LEFT JOIN jenis_grosir AS grosir ON ord_bar.grosir_id=grosir.id WHERE ord_bar.order_id=${orderId}`;
+                    var date=new Date(Date.now())
+                    date=date.toLocaleString()
                     db.all(sql,(err,rows)=>{
                         const printData=[
                             {
                                 type:"text",
-                                value:"Toko Al-Zahra",
-                                style:"text-align:center;"
+                                value:"Toko   AL_Zahra",
+                                style:"text-align:center;font-weight:bold;"
                             },
                             {
                                 type:"text",
-                                value:"Jalan Raya Samangga",
+                                value:"Jalan   Raya   Samanggen",
                                 style:"text-align:center;"
                             },
                             {
@@ -224,41 +224,65 @@ const init=()=>{
                             },
                             {
                                 type:"text",
-                                value:"=========",
+                                value:"",
                                 style:"text-align:center;"
                             },
-                            
+                            {
+                                type:"text",
+                                value:"",
+                                style:"text-align:center;"
+                            },
+                            {
+                                type:"text",
+                                value:"Tanggal : "+date,
+                                style:"text-align:left;"
+                            },
+                            {
+                                type:"text",
+                                value:"Nama  Pelanggan : "+data.namaPelanggan,
+                                style:"text-align:left;"
+                            },
+                            {
+                                type:"text",
+                                value:"=======================",
+                                style:"text-align:center;"
+                            },
                         ]
                         for(barang of rows){
-                            console.log(barang)
                             printData.push({
                                 type:"text",
-                                value:`${barang.nama == null ? barang.nama_produk : barang.nama} ${barang.kuantitas == null ? "":barang.kuantitas}x${barang.nama_jenis == null ? "":barang.nama_jenis} - Rp${barang.sub_total}`,
+                                value:`${barang.nama == null ? barang.nama_produk : barang.nama}  x  ${barang.kuantitas == null ? "":barang.kuantitas} ${barang.nama_jenis == null ? "":barang.nama_jenis}       Rp${barang.sub_total}`,
+                                style:"text-align:justify;"
                             })
                         }
                         printData.push({
                             type:"text",
-                            value:"Total Harga : Rp "+data.total_harga,
+                            value:"=======================",
                             style:"text-align:center;"
                         })
                         printData.push({
                             type:"text",
-                            value:"=========",
+                            value:"Total   Belanja   :   Rp "+data.total_harga.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+                            style:"text-align:justify;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"Total   Bayar   :   Rp "+data.jumlahBayar.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+                            style:"text-align:justify;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"Total   Kembalian   :   Rp "+data.kembalian.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+                            style:"text-align:justify;"
+                        })
+                        printData.push({
+                            type:"text",
+                            value:"=======================",
                             style:"text-align:center;"
                         })
                         printData.push({
                             type:"text",
-                            value:"Barang yang sudah dibeli",
-                            style:"text-align:center;"
-                        })
-                        printData.push({
-                            type:"text",
-                            value:"Tidak dapat ditukar kembali",
-                            style:"text-align:center;"
-                        })
-                        printData.push({
-                            type:"text",
-                            value:"Terimakasih",
+                            value:"TERIMAKASIH",
                             style:"text-align:center;"
                         })
                         // printer.isPrinterConnected().then((conn)=>{
@@ -302,18 +326,16 @@ const init=()=>{
                         PosPrinter.print(printData,{
                             printerName:"TM-U220D-776",
                             preview:false,
-                            width:"245.67px",
+                            width:"283.46px",
                             margin:'0 0 0 0',
                             copies:1,
                             silent:true
-                        }).then(()=>{
-                            console.log("Printed");     
+                        }).then(()=>{ 
                             ev.returnValue={
                                 "inserted":true
                             }
                             
                         }).catch((err)=>{
-                            console.log("Not Printed");
                             ev.returnValue={
                                 "inserted":false
                             }
@@ -357,7 +379,6 @@ const init=()=>{
 
     const buatSupplierService="buat-supplier";
     const buatSupplierListener=(ev,data)=>{
-        console.log(data);
         var sql=`INSERT INTO supplier (nama,alamat,kontak) VALUES('${data.namaSupplier}','${data.alamatSupplier}','${data.kontakSupplier}')`
         db.run(sql,(err,rows)=>{
             if(err)throw err;
@@ -371,7 +392,6 @@ const init=()=>{
 
     const hapusSupplierService="hapus-supplier";
     const hapusSupplierListener=(ev,data)=>{
-        console.log(data);
         var sql="DELETE FROM supplier WHERE id="+data.id;
         db.run(sql,(err,rows)=>{
             if(err)throw err;
@@ -386,7 +406,6 @@ const init=()=>{
     const editUtangPiutangService="edit-utang-piutang";
     const editUtangPiutangListener=(ev,data)=>{
         var sql=`UPDATE supplier SET utang=${data.utang}, piutang=${data.piutang} WHERE id=${data.supplier_id};`
-        console.log(sql);
         db.exec(sql,(err)=>{
             if(err)throw err;
             ev.returnValue={
@@ -401,14 +420,12 @@ const init=()=>{
     const barangService="barang";
     const barangListener=(ev,data)=>{
         var sql="SELECT produk.id AS prod_id,produk.*,grosir.*,jenis.* FROM produk AS produk LEFT JOIN produk_grosir AS grosir ON grosir.produk_id=produk.id LEFT JOIN jenis_grosir AS jenis ON grosir.jenis_id=jenis.id";
-        console.log(data);
         if(data.search){
             sql+=" WHERE produk.nama LIKE '%"+data.search+"%' "
         }
         sql+=" ORDER BY produk.nama "
         var res;
         db.all(sql,(err,rows)=>{
-            console.log(rows)
             if(err)throw err;
             response=Object();
             for(row of rows){
@@ -496,12 +513,12 @@ const init=()=>{
                         sql+=`INSERT INTO produk_grosir (produk_id,jenis_id,kuantitas,harga_grosir) VALUES (${data.idBarang},${jenisGrosir},${grosir.kuantitas},${grosir.harga_satuan});`
                     }
                 }
-                console.log(data.grosirTambahan)
                 for(tambahan of data.grosirTambahan){
                     sql+=`INSERT INTO produk_grosir (produk_id,jenis_id,kuantitas,harga_grosir) VALUES (${data.idBarang},${tambahan.jenis},${tambahan.kuantitas},${tambahan.harga});`
                 }
                 db.exec(sql,err=>{
                     if(err)throw err;
+                    console.log("UPDATED TRUE BOS!")
                     ev.returnValue={
                         'updated':true
                     }
@@ -518,7 +535,6 @@ const init=()=>{
     const deleteBarangService=barangService+"-delete"
     deleteBarangListener=(ev,data)=>{
         var sql="DELETE FROM produk WHERE id="+data["id"]
-        console.log(sql);
         db.run(sql,(err,rows)=>{
             if(err)throw err;
             ev.returnValue={
@@ -662,7 +678,6 @@ const init=()=>{
         var sql="SELECT produk.*,'order'.*,grosir.*,order_id,produk_id,kuantitas,sub_total,nama_produk AS order_nama_produk FROM order_barang AS order_barang LEFT JOIN produk AS produk ON order_barang.produk_id=produk.id LEFT JOIN 'order' ON order_barang.order_id='order'.id LEFT JOIN jenis_grosir AS grosir ON order_barang.grosir_id=grosir.id ORDER BY 'order'.waktu_order DESC"
         db.all(sql,(err,rows)=>{
             if(rows == undefined){
-                console.log(rows)
                 ev.returnValue={
                     "data":rows
                 }
@@ -756,7 +771,6 @@ const init=()=>{
                 dateState=orderDate;
                 orderIdState=barang["order_id"];
             }
-            console.log(orderBarang);
             ev.returnValue={
                 "selected":true,
                 "data":orderBarang

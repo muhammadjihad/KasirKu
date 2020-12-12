@@ -124,6 +124,7 @@
             })
 
             $(".submit-edit-barang").click(ev=>{
+                ev.preventDefault();
                 const grosirElements=ev.target.parentElement.parentElement.children[1].children[0].children[0].children[4].children;
                 // console.log(grosirElements);
                 var dataGrosir=Array();
@@ -164,9 +165,9 @@
             
 
                 // console.log(editGrosir);
-
+                const idBarang=ev.target.parentElement.getAttribute("id_barang")
                 const data={
-                    idBarang:ev.target.parentElement.getAttribute("id_barang"),
+                    idBarang:idBarang,
                     namaBarang:namaBarang,
                     kodeBarang:kodeBarang,
                     hargaSatuan:hargaSatuan,
@@ -175,8 +176,13 @@
                     grosirTambahan:grosirTambahan
                 }
                 console.log(data);
+                console.log("EXECUTED!")
                 var resp=ipcRenderer.sendSync("edit-barang",data);
-                window.location.reload();
+                if(resp.updated){
+                    $('.modal-backdrop').remove();
+                    // $("#edit-barang-"+idBarang).modal("hide");
+                    // renderContent("barang");
+                }
             });
 
             $(".hapus-harga-grosir").click(ev=>{
@@ -187,6 +193,10 @@
                 ev.target.parentElement.parentElement.parentElement.parentElement.remove();
                 setTotalHarga();
             });
+
+            $("#jumlah-bayar").keyup(ev=>{
+                setTotalHarga();
+            })
 
             const subMenu=$(".sub-menu");
             console.log(subMenu)
@@ -335,7 +345,13 @@
                     }
                     belanja.push(dataBelanja);
                 });
+                var namaPelanggan=$("#nama-pelanggan-input").val();
+                var jumlahBayar=$("#jumlah-bayar").val();
+                var kembalian=$("#kembalian").attr("value-kembalian");
                 var sendData={
+                    "namaPelanggan":namaPelanggan,
+                    "jumlahBayar":jumlahBayar,
+                    "kembalian":kembalian,
                     "belanja":belanja,
                     "total_harga":totalHarga
                 }
@@ -602,15 +618,6 @@
                     .prop("checked", "")
                     .end();
             });
-            $(".submit-edit-barang").click(ev=>{
-                // const forms=$("#form-edit-barang").children();
-                // const data={
-                //     namaBarang:forms[0].children[0].value,
-                //     kodeBarang:forms[1].children[0].value
-                // }
-                // var resp=ipcRenderer.sendSync("edit-barang",data);
-                // console.log(resp);
-            });
 
             $("#tambah-produk-manual").click(ev=>{
                 const appending=`<div class="container text-center row produk p-1">
@@ -823,15 +830,25 @@
         //         });
 
         function setTotalHarga(){
-            var totalHarga=0;
+            var totalBelanja=0;
             const totalProduk=$(".produk");
             totalProduk.each((i,produk)=>{
-                totalHarga+=parseInt(produk.getAttribute("sub-total"));
+                totalBelanja+=parseInt(produk.getAttribute("sub-total"));
             });
-            totalHarga=totalHarga.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            var bayar=$("#jumlah-bayar").val();
+            if(bayar == undefined || bayar == null){
+                bayar=0
+            }
+            var kembalian=bayar-totalBelanja;
+            totalBelanja=totalBelanja.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            kembalianString=kembalian.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
             $("#total-harga").html(`
-                <h3>Total Belanja : Rp ${totalHarga}</h3>
+                <h3>Total Belanja : Rp ${totalBelanja}</h3>
             `)
+            $("#kembalian").html(`
+                <h3>Kembali : Rp ${kembalianString}</h3>
+            `)
+            $("#kembalian").attr("value-kembalian",kembalian)
         }
 
         function getHarga(node,produkId,grosirId,kuantitas){
@@ -980,8 +997,15 @@
                                 <div id="tambah-produk-manual" class="btn btn-secondary">Tambah Produk Manual</div>
                             </div>
                             <hr/>
+                            <div class="container m-5 text-center">
+                                <input id="nama-pelanggan-input" class="form-control p-1" placeholder="nama pelanggan" />
+                                <div class="p-1"></div>
+                                <input id="jumlah-bayar" class="form-control" type="number" placeholder="jumlah bayar" />
+                            </div>
+                            <hr/>
                             <div class="container row">
                                 <h3 class="col-sm-10" id="total-harga">Total Belanja : Rp ${totalHarga}</h3>
+                                <h3 class="col-sm-10" id="kembalian">Kembali : Rp ${totalHarga}</h3>
                                 <button type="submit" class="btn btn-success col-sm-2" id="submit-buat-belanja">Konfirmasi</button>
                             </div>
                         </form>
@@ -1384,7 +1408,7 @@
                                     </form>
                                 </div>
                                 <div class="modal-footer" id_barang=${obj.id}>
-                                    <button type="submit" class="btn btn-success submit-edit-barang">Simpan Perubahan</button>
+                                    <button class="btn btn-success submit-edit-barang">Simpan Perubahan</button>
                                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Batalkan</button>
                                 </div>
                                 </div>
